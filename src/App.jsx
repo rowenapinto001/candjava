@@ -275,13 +275,16 @@ function ChapterPicker({ activeChapter, chapters, onOpenChapter }) {
     <nav className="chapter-strip" aria-label="C chapters">
       {chapters.map((chapter) => (
         <button
-          className={activeChapter === chapter.number ? 'is-active' : ''}
+          className={`chapter-card ${activeChapter === chapter.number ? 'is-active' : ''}`}
           key={chapter.number}
           onClick={() => onOpenChapter(chapter)}
           type="button"
         >
-          <span>{chapter.number.toString().padStart(2, '0')}</span>
-          {chapter.title}
+          <span className="chapter-number">{chapter.number.toString().padStart(2, '0')}</span>
+          <span className="chapter-card-copy">
+            <strong>{chapter.title}</strong>
+            <small>{chapter.revisionOnly ? 'Revision route' : `${chapter.topics.length} concepts`}</small>
+          </span>
         </button>
       ))}
     </nav>
@@ -292,9 +295,16 @@ function ChapterNotebook({ chapter, total }) {
   return (
     <article className="notebook">
       <div className="notebook-cover">
-        <p className="chapter-index">Chapter {chapter.number} of {total}</p>
-        <h3>{chapter.title}</h3>
-        <p>{chapter.hook}</p>
+        <div>
+          <p className="chapter-index">Chapter {chapter.number} of {total}</p>
+          <h3>{chapter.title}</h3>
+          <p>{chapter.hook}</p>
+        </div>
+        <div className="chapter-metrics" aria-label="Chapter summary">
+          <span><Sparkles size={16} /> {chapter.topics.length} topics</span>
+          <span><TerminalSquare size={16} /> Examples</span>
+          <span><BookOpen size={16} /> {chapter.revisionOnly ? 'Revision' : 'Questions'}</span>
+        </div>
       </div>
 
       <div className="note-card">
@@ -509,9 +519,10 @@ function SyntaxBlock({ code, compact = false }) {
 
     dragState.current = {
       active: true,
-      startX: event.pageX,
+      startX: event.clientX,
       scrollLeft: block.scrollLeft,
     };
+    block.setPointerCapture?.(event.pointerId);
     block.classList.add('is-dragging');
   };
 
@@ -520,12 +531,13 @@ function SyntaxBlock({ code, compact = false }) {
     if (!block || !dragState.current.active) return;
 
     event.preventDefault();
-    const walk = event.pageX - dragState.current.startX;
+    const walk = event.clientX - dragState.current.startX;
     block.scrollLeft = dragState.current.scrollLeft - walk;
   };
 
-  const stopDrag = () => {
+  const stopDrag = (event) => {
     dragState.current.active = false;
+    blockRef.current?.releasePointerCapture?.(event.pointerId);
     blockRef.current?.classList.remove('is-dragging');
   };
 
@@ -533,10 +545,11 @@ function SyntaxBlock({ code, compact = false }) {
     <div className={`syntax-frame ${compact ? 'is-compact' : ''}`}>
       <pre
         className="syntax-block"
-        onMouseDown={startDrag}
-        onMouseLeave={stopDrag}
-        onMouseMove={moveDrag}
-        onMouseUp={stopDrag}
+        onPointerCancel={stopDrag}
+        onPointerDown={startDrag}
+        onPointerLeave={stopDrag}
+        onPointerMove={moveDrag}
+        onPointerUp={stopDrag}
         ref={blockRef}
       >
         <code dangerouslySetInnerHTML={{ __html: highlightC(code) }} />

@@ -546,49 +546,109 @@ h1 {
 
 .chapter-strip {
   display: flex;
-  gap: 8px;
-  padding-bottom: 12px;
+  gap: 10px;
+  padding: 4px 2px 14px;
   margin-bottom: 16px;
   overflow-x: auto;
+  scrollbar-color: #0e7490 transparent;
+  scrollbar-width: thin;
 }
 
-.chapter-strip button {
-  display: flex;
-  align-items: center;
-  gap: 9px;
+.chapter-card {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 10px;
+  align-items: stretch;
   flex: 0 0 auto;
-  max-width: 230px;
-  min-height: 48px;
-  padding: 9px 11px;
+  width: 214px;
+  min-height: 76px;
+  padding: 11px;
+  overflow: hidden;
   color: #33433f;
   text-align: left;
-  background: #fffdf7;
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.95), rgba(255, 250, 240, 0.95));
   border: 1px solid #dce2d7;
   border-radius: 8px;
+  box-shadow: 0 12px 24px rgba(28, 45, 41, 0.08);
+  transition:
+    transform 160ms ease,
+    box-shadow 160ms ease,
+    border-color 160ms ease;
 }
 
-.chapter-strip button span {
+.chapter-card::after {
+  position: absolute;
+  inset: auto -22px -30px auto;
+  width: 72px;
+  height: 72px;
+  content: "";
+  background: rgba(14, 116, 144, 0.11);
+  border-radius: 50%;
+}
+
+.chapter-card:hover {
+  border-color: #0e7490;
+  box-shadow: 0 18px 34px rgba(28, 45, 41, 0.14);
+  transform: translateY(-2px);
+}
+
+.chapter-number {
   display: grid;
   place-items: center;
   flex: 0 0 auto;
-  width: 34px;
-  height: 30px;
+  width: 42px;
+  height: 100%;
+  min-height: 52px;
   color: #0e7490;
-  font-size: 0.78rem;
+  font-size: 0.9rem;
   font-weight: 900;
-  background: #e3f4f7;
+  background:
+    linear-gradient(135deg, #e3f4f7, #f7fff9);
   border-radius: 6px;
 }
 
-.chapter-strip button.is-active {
+.chapter-card-copy {
+  display: grid;
+  align-content: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.chapter-card-copy strong {
+  position: relative;
+  z-index: 1;
+  line-height: 1.18;
+  overflow-wrap: anywhere;
+}
+
+.chapter-card-copy small {
+  position: relative;
+  z-index: 1;
+  color: #68756f;
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.chapter-card.is-active {
   color: #f8fbf2;
   background: linear-gradient(135deg, #0e7490, #14312f);
   border-color: #0e7490;
+  box-shadow: 0 18px 34px rgba(14, 116, 144, 0.24);
 }
 
-.chapter-strip button.is-active span {
+.chapter-card.is-active::after {
+  background: rgba(247, 211, 92, 0.2);
+}
+
+.chapter-card.is-active .chapter-number {
   color: #142620;
   background: #f7d35c;
+}
+
+.chapter-card.is-active .chapter-card-copy small {
+  color: #d7e6df;
 }
 
 .notebook {
@@ -598,15 +658,35 @@ h1 {
 }
 
 .notebook-cover {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 18px;
+  align-items: end;
   padding: 24px;
   color: #f8fbf2;
   background:
     linear-gradient(135deg, rgba(20, 49, 47, 0.97), rgba(14, 116, 144, 0.94)),
     repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.08) 0 1px, transparent 1px 14px);
   border-radius: 8px;
+  box-shadow: 0 18px 40px rgba(20, 49, 47, 0.18);
+  position: relative;
+  overflow: hidden;
+}
+
+.notebook-cover::after {
+  position: absolute;
+  right: -55px;
+  top: -70px;
+  width: 190px;
+  height: 190px;
+  content: "";
+  background: rgba(247, 211, 92, 0.18);
+  border-radius: 50%;
 }
 
 .chapter-index {
+  position: relative;
+  z-index: 1;
   display: inline-flex;
   margin-bottom: 12px;
   padding: 7px 10px;
@@ -617,16 +697,41 @@ h1 {
 }
 
 .notebook-cover h3 {
+  position: relative;
+  z-index: 1;
   margin-bottom: 12px;
   font-size: clamp(2rem, 4vw, 3.5rem);
   line-height: 0.98;
 }
 
 .notebook-cover p:last-child {
+  position: relative;
+  z-index: 1;
   max-width: 900px;
   margin-bottom: 0;
   color: #d7e6df;
   line-height: 1.62;
+}
+
+.chapter-metrics {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  gap: 8px;
+  min-width: 150px;
+}
+
+.chapter-metrics span {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 9px 10px;
+  color: #14312f;
+  font-size: 0.84rem;
+  font-weight: 900;
+  background: rgba(248, 251, 242, 0.92);
+  border: 1px solid rgba(255, 255, 255, 0.34);
+  border-radius: 8px;
 }
 
 .note-card,
@@ -1013,6 +1118,8 @@ h1 {
 
 .answer-reveal {
   overflow: hidden;
+  width: 100%;
+  max-width: 100%;
   border: 1px solid #dce2d7;
   border-radius: 8px;
   background: #ffffff;
@@ -1041,7 +1148,18 @@ h1 {
 }
 
 .answer-reveal .syntax-frame.is-compact {
+  display: block;
   margin: 9px;
+  max-width: calc(100% - 18px);
+}
+
+.answer-reveal .syntax-block {
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+.answer-reveal .syntax-block code {
+  min-width: max-content;
 }
 
 .syntax-frame {
@@ -1063,7 +1181,7 @@ h1 {
   overscroll-behavior-x: contain;
   cursor: grab;
   -webkit-overflow-scrolling: touch;
-  touch-action: pan-x pan-y;
+  touch-action: pan-x;
   user-select: none;
   color: #e8fff6;
   background:
@@ -1279,6 +1397,26 @@ h1 {
     padding: 14px;
   }
 
+  .chapter-card {
+    width: 198px;
+    min-height: 70px;
+  }
+
+  .notebook-cover {
+    grid-template-columns: 1fr;
+  }
+
+  .chapter-metrics {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    min-width: 0;
+  }
+
+  .chapter-metrics span {
+    justify-content: center;
+    padding: 8px;
+    text-align: center;
+  }
+
   .topic-table-head {
     display: none;
   }
@@ -1346,6 +1484,14 @@ h1 {
 
   .bot-hero h2 {
     font-size: 2.25rem;
+  }
+
+  .chapter-card {
+    width: 178px;
+  }
+
+  .chapter-metrics {
+    grid-template-columns: 1fr;
   }
 
   .ask-form {
