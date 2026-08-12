@@ -63,6 +63,108 @@ int main(void) {
 } else {
   grade = 'C';
 }`,
+      conditionalExamples: [
+        {
+          title: 'Simple if',
+          use: 'Use it when one action should happen only if the condition is true.',
+          code: `int age = 20;
+
+if (age >= 18) {
+  printf("You can vote.\\n");
+}`,
+        },
+        {
+          title: 'if-else',
+          use: 'Use it when the program must choose between two clear paths.',
+          code: `int number = 7;
+
+if (number % 2 == 0) {
+  printf("Even number\\n");
+} else {
+  printf("Odd number\\n");
+}`,
+        },
+        {
+          title: 'else-if ladder',
+          use: 'Use it when only one category should match from many choices.',
+          code: `int marks = 82;
+
+if (marks >= 90) {
+  printf("Grade A\\n");
+} else if (marks >= 75) {
+  printf("Grade B\\n");
+} else if (marks >= 50) {
+  printf("Grade C\\n");
+} else {
+  printf("Needs practice\\n");
+}`,
+        },
+        {
+          title: 'Nested if',
+          use: 'Use it when one decision depends on another decision already being true.',
+          code: `int age = 19;
+int hasId = 1;
+
+if (age >= 18) {
+  if (hasId == 1) {
+    printf("Entry allowed\\n");
+  } else {
+    printf("ID required\\n");
+  }
+}`,
+        },
+        {
+          title: 'Logical AND',
+          use: 'Use `&&` when all conditions must be true.',
+          code: `int marks = 76;
+int attendance = 82;
+
+if (marks >= 50 && attendance >= 75) {
+  printf("Allowed for exam\\n");
+}`,
+        },
+        {
+          title: 'Logical OR',
+          use: 'Use `||` when at least one condition is enough.',
+          code: `char choice = 'y';
+
+if (choice == 'y' || choice == 'Y') {
+  printf("Continuing...\\n");
+}`,
+        },
+        {
+          title: 'Logical NOT',
+          use: 'Use `!` to reverse true/false meaning.',
+          code: `int isLoggedIn = 0;
+
+if (!isLoggedIn) {
+  printf("Please login first\\n");
+}`,
+        },
+        {
+          title: 'Conditional operator',
+          use: 'Use `? :` for a short value selection.',
+          code: `int age = 17;
+
+printf("%s\\n", age >= 18 ? "Adult" : "Minor");`,
+        },
+        {
+          title: 'switch',
+          use: 'Use it for menu-like exact choices.',
+          code: `int choice = 2;
+
+switch (choice) {
+  case 1:
+    printf("Add record\\n");
+    break;
+  case 2:
+    printf("View record\\n");
+    break;
+  default:
+    printf("Invalid choice\\n");
+}`,
+        },
+      ],
       practice: 'Build a grade calculator that handles invalid marks below 0 or above 100.',
       energy: 'Every `if` is a fork in the road. Good programs make the road signs impossible to misunderstand.',
     },
@@ -110,10 +212,10 @@ int main(void) {
       ],
       trap: 'Forgetting `break` can make one menu option secretly execute several options.',
       example: `switch (choice) {
-  case 1: puts("Add"); break;
-  case 2: puts("Edit"); break;
-  case 0: puts("Exit"); break;
-  default: puts("Unknown option");
+  case 1: printf("Add\\n"); break;
+  case 2: printf("Edit\\n"); break;
+  case 0: printf("Exit\\n"); break;
+  default: printf("Unknown option\\n");
 }`,
       practice: 'Create a calculator menu using `switch` for +, -, *, and /.',
       energy: 'A `switch` reads like a scene list: when this happens, go here; when that happens, go there.',
@@ -380,7 +482,7 @@ if (fp != NULL) {
       example: `unsigned flags = 0;
 flags |= 1u << 2;        // turn bit 2 on
 if (flags & (1u << 2)) {
-  puts("bit 2 is set");
+  printf("bit 2 is set\\n");
 }`,
       practice: 'Store three permissions in one integer: read, write, execute. Toggle each with a menu.',
       energy: 'Bits are tiny switches. Bitwise operators are your fingertips on the switchboard.',
@@ -535,9 +637,9 @@ typedef int (*Operation)(int, int);`,
       trap: 'After `fork()`, both parent and child keep running. Make each branch explicit.',
       example: `pid_t pid = fork();
 if (pid == 0) {
-  puts("child");
+  printf("child\\n");
 } else if (pid > 0) {
-  puts("parent");
+  printf("parent\\n");
 }`,
       practice: 'Create a program that forks once and prints parent/child process IDs.',
       energy: 'With `fork()`, one program becomes two. It feels like a magic trick until the return value explains it.',
@@ -564,6 +666,226 @@ if (pid == 0) {
       practice: 'Write a program that catches Ctrl+C and prints a short message before exiting cleanly.',
       energy: 'Signals make the program listen to the world outside its own straight-line plan.',
     },
+    {
+      number: 22,
+      title: 'Final C Revision Map',
+      hook: 'This is your last-room-before-the-exam chapter: a simple way to remember the whole C journey without feeling lost.',
+      revisionOnly: true,
+      topics: [
+        ['1. Getting Started', 'Remember C as input, storage, calculation, and output. First master variables, types, operators, `main()`, `printf()`, and `scanf()`.'],
+        ['2. Decisions', 'Remember decisions as gates. `if` checks one gate, `if-else` chooses two roads, `else-if` handles many ranges, and `switch` handles menu choices.'],
+        ['3. Loops', 'Remember loops as repeat engines. `for` is for counting, `while` is for condition-based repetition, and `do-while` is for menus that run at least once.'],
+        ['4. switch', 'Remember `switch` as a control panel. Match exact values, use `case`, add `break`, and keep `default` for wrong input.'],
+        ['5. Functions & Pointers', 'Remember functions as named tasks and pointers as addresses. `&` means address, `*` means value at address.'],
+        ['6. Data Types', 'Remember types as memory shapes. Choose the type based on range, decimal need, sign, and lifetime.'],
+        ['7. Preprocessor', 'Remember the preprocessor as the before-compiler helper: `#include`, `#define`, and conditional compilation.'],
+        ['8. Arrays', 'Remember arrays as rows of same-type values. Index starts at 0 and the last valid index is size minus 1.'],
+        ['9. Strings', 'Remember strings as character arrays ending with `\\0`. Always keep space for the null character.'],
+        ['10. Structures', 'Remember structures as records. Use them when many values belong to one thing.'],
+        ['11. Console I/O', 'Remember format specifiers. Match `%d`, `%f`, `%c`, `%s` with the correct data type.'],
+        ['12. File I/O', 'Remember the file cycle: open, check, read/write, close.'],
+        ['13. More I/O', 'Remember command-line tools: `argc`, `argv`, `stdin`, `stdout`, `stderr`, and redirection.'],
+        ['14. Bits', 'Remember bits as switches. AND checks, OR turns on, XOR toggles, shifts move bits.'],
+        ['15. Misc Features', 'Remember this as the advanced toolbox: `enum`, `typedef`, casts, unions, function pointers, and varargs.'],
+        ['16-19. Windows & Hardware', 'Remember the idea, not old details: event loops, messages, resources, device safety, and OS control.'],
+        ['20-21. Linux', 'Remember Linux C as process and signal programming: `fork()`, `wait()`, `getpid()`, `signal()`, and `pause()`.'],
+      ],
+      useIt: [
+        'Revise in layers: first names, then syntax, then tiny programs, then mistakes.',
+        'For every concept, ask: What problem does it solve? What syntax does it use? What mistake should I avoid?',
+        'Practice by rewriting small programs without looking, then compare with the notes.',
+      ],
+      trap: 'Do not revise C by only reading. C becomes clear when you write small programs and fix small errors yourself.',
+      example: `/* 5-step C revision cycle */
+/* 1. Read concept
+   2. Trace one example
+   3. Rewrite without looking
+   4. Change one input/condition
+   5. Note the mistake you made */`,
+      practice: 'Pick any chapter, write one tiny program from memory, run it, fix errors, and explain the logic in your own words.',
+      energy: 'Revision is not re-reading the mountain. It is placing signboards on the path so your brain can walk it again.',
+      revisionPlan: [
+        {
+          title: 'The 4-Box Memory Method',
+          points: [
+            'Box 1: Name the concept in one line.',
+            'Box 2: Write the smallest syntax pattern.',
+            'Box 3: Write one tiny example.',
+            'Box 4: Write the common mistake.',
+          ],
+        },
+        {
+          title: 'The 7-Day Revision Route',
+          points: [
+            'Day 1: Basics, operators, input/output.',
+            'Day 2: Decisions, switch, loops.',
+            'Day 3: Functions, pointers, data types.',
+            'Day 4: Arrays, strings, structures.',
+            'Day 5: Preprocessor, console I/O, file I/O.',
+            'Day 6: Bits and miscellaneous features.',
+            'Day 7: Linux/process concepts and full mixed practice.',
+          ],
+        },
+        {
+          title: 'The Exam Recall Trick',
+          points: [
+            'Before solving, identify the chapter concept: decision, loop, array, string, function, file, or pointer.',
+            'Write the skeleton first: declarations, input, processing, output.',
+            'Check boundaries: array limits, null character, file open failure, division by zero, and loop stop condition.',
+          ],
+        },
+      ],
+    },
+  ],
+};
+
+export const codingQuestionsByChapter = {
+  1: [
+    'Write a C program to read two integers and print their sum, difference, product, quotient, and remainder.',
+    'Write a program to convert temperature from Celsius to Fahrenheit using variables and arithmetic operators.',
+    'Write a program to calculate simple interest after reading principal, rate, and time from the user.',
+    'Write a program to swap two numbers using a third variable, then print the values before and after swapping.',
+    'Write a program to read marks in three subjects and print the total and percentage with two decimal places.',
+  ],
+  2: [
+    'Write a program to check whether a number is positive, negative, or zero using `if-else`.',
+    'Write a program to find the greatest of three numbers using nested `if` statements.',
+    'Write a program to assign a grade from marks using an `else-if` ladder.',
+    'Write a program to check whether a year is a leap year using logical operators.',
+    'Write a program to print whether a number is even or odd using the conditional operator `? :`.',
+  ],
+  3: [
+    'Write a program to print the multiplication table of a number using a `for` loop.',
+    'Write a program to calculate the sum of digits of an integer using a `while` loop.',
+    'Write a program to reverse a number using a loop.',
+    'Write a menu-driven program that keeps running until the user chooses Exit using `do-while`.',
+    'Write a program to print prime numbers from 1 to 100 using nested loops.',
+  ],
+  4: [
+    'Write a calculator program using `switch` for addition, subtraction, multiplication, and division.',
+    'Write a program that prints the day name when the user enters a number from 1 to 7.',
+    'Write a menu-driven program for area of circle, rectangle, and triangle using `switch`.',
+    'Write a program to handle vowel/consonant checking using `switch`.',
+    'Write a program that demonstrates fall-through intentionally by grouping uppercase and lowercase menu choices.',
+  ],
+  5: [
+    'Write a function `maxOfThree()` that returns the largest of three numbers.',
+    'Write a function to swap two integers using pointers.',
+    'Write a recursive function to calculate factorial of a number.',
+    'Write a function that receives two numbers and returns both sum and product using pointer parameters.',
+    'Write a program with separate functions for input, calculation, and output for a student marks report.',
+  ],
+  6: [
+    'Write a program to print the size of `char`, `int`, `long`, `float`, and `double` using `sizeof`.',
+    'Write a program to show the difference between signed and unsigned integer values.',
+    'Write a program using a `static` local variable to count how many times a function is called.',
+    'Write a program that uses an `extern` variable shared across two source files.',
+    'Write a program that compares precision differences between `float` and `double`.',
+  ],
+  7: [
+    'Create a macro `SQUARE(x)` and test it with both `5` and `a + b`; then correct it using parentheses.',
+    'Write a program that uses `#define` constants for circle area calculation.',
+    'Create a header file with include guards and include it in a C program.',
+    'Write a program using conditional compilation to print different messages for Windows and Linux.',
+    'Write a macro `MAX(a, b)` and compare its behavior with a normal function.',
+  ],
+  8: [
+    'Write a program to read 10 integers into an array and print the largest and smallest values.',
+    'Write a program to calculate the average marks of students using an array.',
+    'Write a function that receives an array and returns the sum of its elements.',
+    'Write a program to add two 3x3 matrices using two-dimensional arrays.',
+    'Write a program to store and print names using an array of string pointers.',
+  ],
+  9: [
+    'Write a program to count vowels, consonants, digits, and spaces in a string.',
+    'Write your own version of `strlen()` without using the library function.',
+    'Write a program to copy one string into another without using `strcpy()`.',
+    'Write a program to check whether two strings are equal without using `strcmp()`.',
+    'Write a program to sort a list of names stored in a two-dimensional character array.',
+  ],
+  10: [
+    'Create a `struct Student` and print details of one student.',
+    'Write a program to store details of 5 students using an array of structures.',
+    'Write a program to find the student with the highest marks from an array of structures.',
+    'Write a program using a nested structure for employee address details.',
+    'Write a function that receives a pointer to a structure and updates one of its fields.',
+  ],
+  11: [
+    'Write a program that reads an integer, float, character, and string using console input functions.',
+    'Write a program to print a formatted bill with item name, quantity, price, and total.',
+    'Write a program that uses `sprintf()` to create a formatted message inside a string.',
+    'Write a program that uses `sscanf()` to extract values from a formatted string.',
+    'Write a character counter that reads input one character at a time until newline.',
+  ],
+  12: [
+    'Write a program to create a text file and write five lines into it.',
+    'Write a program to read a file line by line and print it on the screen.',
+    'Write a file-copy program that copies contents from one text file to another.',
+    'Write a program to count characters, spaces, tabs, and newlines in a file.',
+    'Write a program to store and read employee records using binary file I/O.',
+  ],
+  13: [
+    'Write a program that accepts a filename through `argv` and prints its contents.',
+    'Write a program that checks whether the correct number of command-line arguments were provided.',
+    'Write a program that prints normal output to `stdout` and error messages to `stderr`.',
+    'Write a program that can take input using redirection and count the number of words.',
+    'Write a program that copies one file to another using filenames supplied through command-line arguments.',
+  ],
+  14: [
+    'Write a program to display the binary representation of an unsigned integer.',
+    'Write a program to check whether a particular bit is set or not.',
+    'Write a program to turn on, turn off, and toggle a selected bit using bitwise operators.',
+    'Write a program to store read, write, and execute permissions inside one integer.',
+    'Write a program to swap two numbers using the XOR operator.',
+  ],
+  15: [
+    'Write a program using `enum` to manage task status: pending, running, and done.',
+    'Write a program using `typedef` to create a cleaner name for a structure.',
+    'Write a program using a function pointer to call add, subtract, multiply, or divide functions.',
+    'Write a program using a union to store either an integer, float, or character value.',
+    'Write a function that accepts a variable number of integers and returns their sum.',
+  ],
+  16: [
+    'Write a small Win32-style pseudocode program that shows setup, message loop, and cleanup sections.',
+    'Write a program snippet that uses `typedef` to create readable aliases for unsigned integer types.',
+    'Write a note-style C program that prints pointer size using `sizeof(void *)`.',
+    'Write a sample resource-management function that opens a handle-like value and always closes it before returning.',
+    'Write a simple event-loop simulation in C using `while` and `switch` to process fake window events.',
+  ],
+  17: [
+    'Write a menu simulation where each user choice behaves like a window message.',
+    'Write a C program that uses a function to handle different fake events such as create, paint, click, and close.',
+    'Write a program that uses `switch` to react to button IDs: Save, Open, Reset, and Exit.',
+    'Write a program that keeps a counter of how many fake windows were created.',
+    'Write a short event-driven calculator where the operation is selected through menu messages.',
+  ],
+  18: [
+    'Write a program to store coordinates of points in arrays and print line segments between them.',
+    'Write a C structure for a shape with type, x, y, width, height, and color fields.',
+    'Write a program that simulates drawing rectangles and circles by printing their stored properties.',
+    'Write a simple animation simulation that updates x and y coordinates inside a timer loop.',
+    'Write a program that records mouse-like drag points and prints the full path.',
+  ],
+  19: [
+    'Write a program that explains device access by printing safe steps: request permission, open device, use device, close device.',
+    'Write a C structure to represent a disk sector with sector number and byte count.',
+    'Write a program that simulates reading sector numbers from the user and validates the range.',
+    'Write a program that logs keyboard choices only inside your own menu, with clear user consent.',
+    'Write a program that demonstrates dynamic loading as a menu simulation: load, call, unload.',
+  ],
+  20: [
+    'Write a Linux C program that prints the current process ID using `getpid()`.',
+    'Write a program that calls `fork()` once and prints separate messages from parent and child.',
+    'Write a program where the parent waits for the child using `wait()` or `waitpid()`.',
+    'Write a program that creates two child processes and prints their process IDs.',
+    'Write a program that demonstrates why a child process should be waited for to avoid zombie processes.',
+  ],
+  21: [
+    'Write a program that catches `SIGINT` and prints a message before exiting.',
+    'Write a program that uses one common signal handler for two different signals.',
+    'Write a program that sets an alarm signal and prints a message when the alarm arrives.',
+    'Write a program that temporarily blocks a signal during a critical section.',
+    'Write an event-driven C program outline that waits for signals and reacts based on the signal number.',
   ],
 };
 
