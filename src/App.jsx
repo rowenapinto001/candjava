@@ -20,11 +20,16 @@ import {
 } from 'lucide-react';
 import { codingAnswersByChapter } from './data/codingAnswers.js';
 import { cNotes, codingQuestionsByChapter, comingSoonLanguages } from './data/cNotes.js';
+import { javaNotes } from './data/javaNotes.js';
 import { programExamplesByChapter } from './data/programExamples.js';
 
-const languages = [cNotes, ...comingSoonLanguages];
+const languages = [
+  cNotes,
+  javaNotes,
+  ...comingSoonLanguages.filter((language) => language.id !== 'java'),
+];
 
-const starterPrompts = [
+const cStarterPrompts = [
   'Explain pointers',
   'Loop revision',
   'Arrays fast notes',
@@ -48,16 +53,22 @@ function App() {
   const inputRef = useRef(null);
 
   const selectedLanguage = languages.find((language) => language.id === activeLanguage);
-  const isReady = selectedLanguage.id === 'c';
-  const selectedChapter = cNotes.chapters.find((chapter) => chapter.number === activeChapter) ?? cNotes.chapters[0];
+  const isReady = Boolean(selectedLanguage.chapters?.length);
+  const selectedChapter = selectedLanguage.chapters?.find((chapter) => chapter.number === activeChapter)
+    ?? selectedLanguage.chapters?.[0]
+    ?? cNotes.chapters[0];
+  const starterPrompts = selectedLanguage.prompts ?? cStarterPrompts;
 
-  const topicMatches = useMemo(() => flattenNotes(cNotes.chapters), []);
+  const topicMatches = useMemo(
+    () => flattenNotes(selectedLanguage.chapters ?? []),
+    [selectedLanguage],
+  );
 
   const askBot = (rawQuestion) => {
     const cleanQuestion = rawQuestion.trim();
     if (!cleanQuestion) return;
 
-    const answer = buildAnswer(cleanQuestion, selectedChapter, topicMatches);
+    const answer = buildAnswer(cleanQuestion, selectedChapter, topicMatches, selectedLanguage);
     setMessages((current) => [
       ...current,
       {
@@ -95,6 +106,20 @@ function App() {
     ]);
   };
 
+  const openLanguage = (language) => {
+    setActiveLanguage(language.id);
+    setActiveChapter(1);
+    if (language.chapters?.length) {
+      setMessages([
+        {
+          id: crypto.randomUUID(),
+          role: 'bot',
+          text: `Ready for a ${language.name} study sprint. Pick a chapter or ask for a concept, example, trap, or practice set.`,
+        },
+      ]);
+    }
+  };
+
   return (
     <main className="bot-page">
       <aside className="bot-sidebar">
@@ -112,7 +137,7 @@ function App() {
           <Flame size={20} />
           <div>
             <span>Focus Path</span>
-            <strong>{cNotes.chapters.length} C levels loaded</strong>
+            <strong>{isReady ? `${selectedLanguage.chapters.length} ${selectedLanguage.name} levels loaded` : 'More tracks coming'}</strong>
           </div>
         </div>
 
@@ -121,7 +146,7 @@ function App() {
             <button
               className={`language-button ${activeLanguage === language.id ? 'is-active' : ''}`}
               key={language.id}
-              onClick={() => setActiveLanguage(language.id)}
+              onClick={() => openLanguage(language)}
               type="button"
             >
               <span>{language.name}</span>
@@ -134,9 +159,11 @@ function App() {
           <FileText size={18} />
           <div>
             <p>Current source</p>
-            <a href={cNotes.source.url} target="_blank" rel="noreferrer">
-              {cNotes.source.label}
-            </a>
+            {selectedLanguage.source ? (
+              <a href={selectedLanguage.source.url} target="_blank" rel="noreferrer">
+                {selectedLanguage.source.label}
+              </a>
+            ) : <span>Source not loaded yet</span>}
           </div>
         </div>
       </aside>
@@ -146,11 +173,11 @@ function App() {
           <div>
             <p className="eyebrow">Ask. Unlock. Remember.</p>
             <h2>{selectedLanguage.name} Notes Bot</h2>
-            <p>Turn each C chapter into a short mission: key ideas, danger points, examples, and practice.</p>
+            <p>Turn each {selectedLanguage.name} chapter into a short mission: key ideas, danger points, examples, and practice.</p>
           </div>
           <HeroVisual chapter={selectedChapter} />
           <div className="hero-stats" aria-label="Notes summary">
-            <span><NotebookTabs size={18} /> {cNotes.chapters.length} chapters</span>
+            <span><NotebookTabs size={18} /> {selectedLanguage.chapters?.length ?? 0} chapters</span>
             <span><ListChecks size={18} /> {selectedChapter.topics.length} live topics</span>
           </div>
         </header>
@@ -207,10 +234,14 @@ function App() {
             <section className="study-panel" aria-label="Selected chapter notes">
               <ChapterPicker
                 activeChapter={activeChapter}
-                chapters={cNotes.chapters}
+                chapters={selectedLanguage.chapters}
                 onOpenChapter={openChapter}
               />
-              <ChapterNotebook chapter={selectedChapter} total={cNotes.chapters.length} />
+              <ChapterNotebook
+                chapter={selectedChapter}
+                language={selectedLanguage}
+                total={selectedLanguage.chapters.length}
+              />
             </section>
           </div>
         )}
@@ -272,7 +303,7 @@ function HeroVisual({ chapter }) {
 
 function ChapterPicker({ activeChapter, chapters, onOpenChapter }) {
   return (
-    <nav className="chapter-strip" aria-label="C chapters">
+    <nav className="chapter-strip" aria-label="Language chapters">
       {chapters.map((chapter) => (
         <button
           className={`chapter-card ${activeChapter === chapter.number ? 'is-active' : ''}`}
@@ -291,7 +322,7 @@ function ChapterPicker({ activeChapter, chapters, onOpenChapter }) {
   );
 }
 
-function ChapterNotebook({ chapter, total }) {
+function ChapterNotebook({ chapter, language, total }) {
   return (
     <article className="notebook">
       <div className="notebook-cover">
@@ -317,14 +348,18 @@ function ChapterNotebook({ chapter, total }) {
             <span role="columnheader">Topic</span>
             <span role="columnheader">Important Point + Example</span>
           </div>
-          {chapter.topics.map(([topic, point]) => (
+          {chapter.topics.map(([topic, point, example]) => (
             <div className="topic-table-row" key={topic} role="row">
               <strong role="cell">{topic}</strong>
               <div className="topic-detail" role="cell">
                 <p>{point}</p>
                 <div className="topic-example">
                   <span>Example</span>
-                  <SyntaxBlock code={getTopicExample(chapter.number, topic)} compact />
+                  <SyntaxBlock
+                    code={example ?? getTopicExample(chapter.number, topic)}
+                    compact
+                    languageId={language.id}
+                  />
                 </div>
               </div>
             </div>
@@ -372,14 +407,14 @@ function ChapterNotebook({ chapter, total }) {
               <div className="example-table-row" key={item.title}>
                 <strong>{item.title}</strong>
                 <p>{item.use}</p>
-                <SyntaxBlock code={item.code} compact />
+                <SyntaxBlock code={item.code} compact languageId={language.id} />
               </div>
             ))}
           </div>
         </div>
       )}
 
-      {!chapter.revisionOnly && <ProgramExamples chapter={chapter} />}
+      {!chapter.revisionOnly && <ProgramExamples chapter={chapter} language={language} />}
 
       <div className="note-split">
         <div className="code-card">
@@ -387,8 +422,8 @@ function ChapterNotebook({ chapter, total }) {
             <TerminalSquare size={20} />
             <h4>Highlighted Syntax</h4>
           </div>
-          <SyntaxBlock code={chapter.example} />
-          <SyntaxLegend />
+          <SyntaxBlock code={chapter.example} languageId={language.id} />
+          <SyntaxLegend languageId={language.id} />
         </div>
 
         <div className="note-card practice">
@@ -401,7 +436,7 @@ function ChapterNotebook({ chapter, total }) {
         </div>
       </div>
 
-      {!chapter.revisionOnly && <CodingQuestions chapter={chapter} />}
+      {!chapter.revisionOnly && <CodingQuestions chapter={chapter} language={language} />}
     </article>
   );
 }
@@ -429,8 +464,9 @@ function RevisionPlan({ plan }) {
   );
 }
 
-function ProgramExamples({ chapter }) {
-  const examples = programExamplesByChapter[chapter.number] ?? [];
+function ProgramExamples({ chapter, language }) {
+  const examples = chapter.programExamples
+    ?? (language.id === 'c' ? programExamplesByChapter[chapter.number] : []);
 
   if (examples.length === 0) return null;
 
@@ -448,8 +484,8 @@ function ProgramExamples({ chapter }) {
               <p>{example.idea}</p>
             </div>
             <div className="program-code-stack">
-              <SyntaxBlock code={example.code} compact />
-              <CodeExplanation code={example.code} idea={example.idea} />
+              <SyntaxBlock code={example.code} compact languageId={language.id} />
+              <CodeExplanation code={example.code} idea={example.idea} languageId={language.id} />
             </div>
           </article>
         ))}
@@ -458,8 +494,8 @@ function ProgramExamples({ chapter }) {
   );
 }
 
-function CodeExplanation({ code, idea }) {
-  const points = getCodeExplanationPoints(code, idea);
+function CodeExplanation({ code, idea, languageId }) {
+  const points = getCodeExplanationPoints(code, idea, languageId);
 
   return (
     <div className="code-explanation">
@@ -476,9 +512,11 @@ function CodeExplanation({ code, idea }) {
   );
 }
 
-function CodingQuestions({ chapter }) {
-  const questions = codingQuestionsByChapter[chapter.number] ?? [];
-  const answers = codingAnswersByChapter[chapter.number] ?? [];
+function CodingQuestions({ chapter, language }) {
+  const questions = chapter.questions
+    ?? (language.id === 'c' ? codingQuestionsByChapter[chapter.number] : []);
+  const answers = chapter.answers
+    ?? (language.id === 'c' ? codingAnswersByChapter[chapter.number] : []);
 
   if (questions.length === 0) return null;
 
@@ -495,7 +533,7 @@ function CodingQuestions({ chapter }) {
             {answers[index] && (
               <details className="answer-reveal">
                 <summary>Answer</summary>
-                <SyntaxBlock code={answers[index]} compact />
+                <SyntaxBlock code={answers[index]} compact languageId={language.id} />
               </details>
             )}
           </li>
@@ -505,7 +543,7 @@ function CodingQuestions({ chapter }) {
   );
 }
 
-function SyntaxBlock({ code, compact = false }) {
+function SyntaxBlock({ code, compact = false, languageId = 'c' }) {
   const blockRef = useRef(null);
   const dragState = useRef({
     active: false,
@@ -552,16 +590,16 @@ function SyntaxBlock({ code, compact = false }) {
         onPointerUp={stopDrag}
         ref={blockRef}
       >
-        <code dangerouslySetInnerHTML={{ __html: highlightC(code) }} />
+        <code dangerouslySetInnerHTML={{ __html: highlightCode(code, languageId) }} />
       </pre>
     </div>
   );
 }
 
-function SyntaxLegend() {
+function SyntaxLegend({ languageId }) {
   return (
     <div className="syntax-legend" aria-label="Syntax color guide">
-      <span><i className="legend-key key-pre" /> Preprocessor</span>
+      <span><i className="legend-key key-pre" /> {languageId === 'java' ? 'Annotation' : 'Preprocessor'}</span>
       <span><i className="legend-key key-kw" /> Keyword</span>
       <span><i className="legend-key key-fn" /> Function</span>
       <span><i className="legend-key key-str" /> String</span>
@@ -599,6 +637,26 @@ function highlightC(code) {
   });
 }
 
+function highlightJava(code) {
+  const escaped = escapeHtml(code);
+  const pattern =
+    /(@[A-Za-z_]\w*)|("(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*')|(\/\/.*$|\/\*[\s\S]*?\*\/)|(\b(?:abstract|assert|boolean|break|byte|case|catch|char|class|const|continue|default|do|double|else|enum|extends|final|finally|float|for|goto|if|implements|import|instanceof|int|interface|long|native|new|package|private|protected|public|return|short|static|strictfp|super|switch|synchronized|this|throw|throws|transient|try|void|volatile|while|true|false|null|var|record|sealed|permits|yield)\b)|(\b\d+(?:\.\d+)?(?:[lLfFdD]+)?\b)|(\b[A-Za-z_]\w*(?=\s*\())/gm;
+
+  return escaped.replace(pattern, (match, annotation, string, comment, keyword, number, fn) => {
+    if (annotation) return `<span class="tok-pre">${annotation}</span>`;
+    if (string) return `<span class="tok-str">${string}</span>`;
+    if (comment) return `<span class="tok-com">${comment}</span>`;
+    if (keyword) return `<span class="tok-kw">${keyword}</span>`;
+    if (number) return `<span class="tok-num">${number}</span>`;
+    if (fn) return `<span class="tok-fn">${fn}</span>`;
+    return match;
+  });
+}
+
+function highlightCode(code, languageId) {
+  return languageId === 'java' ? highlightJava(code) : highlightC(code);
+}
+
 function escapeHtml(value) {
   return value
     .replace(/&/g, '&amp;')
@@ -606,8 +664,19 @@ function escapeHtml(value) {
     .replace(/>/g, '&gt;');
 }
 
-function getCodeExplanationPoints(code, idea) {
+function getCodeExplanationPoints(code, idea, languageId = 'c') {
   const checks = [
+    [/System\.out\.(?:print|println|printf)\s*\(/, '`System.out` writes program output. `println` adds a new line, while `printf` gives precise formatting control.'],
+    [/\bclass\s+[A-Za-z_]/, 'A `class` groups state and behavior into a reusable type; objects are created from that blueprint.'],
+    [/\bnew\s+[A-Za-z_]/, '`new` creates an object and returns the reference used to reach it.'],
+    [/\bextends\b/, '`extends` creates an inheritance relationship so a child can reuse and specialize parent behavior.'],
+    [/\bimplements\b/, '`implements` promises that the class supplies the operations declared by an interface.'],
+    [/\btry\s*\{/, '`try` surrounds work that may fail; a matching `catch` decides how that failure is handled.'],
+    [/\bcatch\s*\(/, '`catch` receives a specific exception, allowing the program to recover or report useful context.'],
+    [/\bsynchronized\b/, '`synchronized` protects shared state so only one thread at a time enters the guarded section.'],
+    [/\bThread\b|ExecutorService/, 'Threading is used because this work may run concurrently; shared state and cleanup need deliberate coordination.'],
+    [/java\.util\.|\bList<|\bSet<|\bMap</, 'A Java collection stores groups of objects behind a clear contract such as ordered values, unique values, or key-value pairs.'],
+    [/try\s*\([^)]/, 'Try-with-resources closes owned resources automatically, including when an exception interrupts the normal path.'],
     [/scanf\s*\(/, '`scanf()` is used to take input from the user; `&` gives the variable address so C can store the typed value there.'],
     [/printf\s*\(/, '`printf()` shows output on the screen; format symbols like `%d`, `%f`, and `%s` decide how values are printed.'],
     [/\bif\s*\(/, '`if` checks a condition. The code inside it runs only when the condition is true.'],
@@ -642,7 +711,26 @@ function getCodeExplanationPoints(code, idea) {
 
   const points = [idea];
 
+  const cOnlyExplanations = [
+    '`scanf()`',
+    'Pointer logic',
+    '`&` gives',
+    '`struct`',
+    '`->`',
+    '`#define`',
+    'Preprocessor guards',
+    'File functions',
+    '`argc` and `argv`',
+    '`fork()`',
+    '`getpid()`',
+    '`signal()`',
+    '`pause()`',
+  ];
+
   checks.forEach(([pattern, explanation]) => {
+    if (languageId === 'java' && cOnlyExplanations.some((start) => explanation.startsWith(start))) {
+      return;
+    }
     if (pattern.test(code) && !points.includes(explanation)) {
       points.push(explanation);
     }
@@ -965,11 +1053,11 @@ function flattenNotes(chapters) {
   );
 }
 
-function buildAnswer(question, fallbackChapter, topicMatches) {
+function buildAnswer(question, fallbackChapter, topicMatches, language) {
   const lower = question.toLowerCase();
   const chapterNumber = lower.match(/chapter\s*(\d+)|\bch\s*(\d+)/)?.slice(1).find(Boolean);
   const directChapter = chapterNumber
-    ? cNotes.chapters.find((chapter) => chapter.number === Number(chapterNumber))
+    ? language.chapters.find((chapter) => chapter.number === Number(chapterNumber))
     : null;
 
   const exactTopic = topicMatches.find((item) => lower.includes(item.topic.toLowerCase()));
@@ -990,7 +1078,8 @@ function buildAnswer(question, fallbackChapter, topicMatches) {
     lower.includes('programming question') ||
     lower.includes('question')
   ) {
-    const questions = codingQuestionsByChapter[chapter.number] ?? [];
+    const questions = chapter.questions
+      ?? (language.id === 'c' ? codingQuestionsByChapter[chapter.number] : []);
     return {
       chapter,
       match,
@@ -1017,7 +1106,8 @@ function buildAnswer(question, fallbackChapter, topicMatches) {
   }
 
   if (lower.includes('example') || lower.includes('code')) {
-    const examples = programExamplesByChapter[chapter.number] ?? [];
+    const examples = chapter.programExamples
+      ?? (language.id === 'c' ? programExamplesByChapter[chapter.number] : []);
     return {
       chapter,
       match,
@@ -1046,7 +1136,7 @@ function buildAnswer(question, fallbackChapter, topicMatches) {
   return {
     chapter,
     match: null,
-    text: `I could not find an exact topic, so I opened the current chapter: ${chapter.title}. Try asking with words like pointers, loops, arrays, strings, files, structures, bits, or Linux.`,
+    text: `I could not find an exact topic, so I opened the current chapter: ${chapter.title}. Try a chapter number or a keyword from the topic table.`,
   };
 }
 
