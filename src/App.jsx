@@ -1,22 +1,37 @@
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   AlertTriangle,
+  ArrowLeft,
+  ArrowRight,
   BookOpen,
+  Bookmark,
+  BookmarkCheck,
   Bot,
+  Check,
+  CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
+  Circle,
   Code2,
   FileText,
+  Filter,
   Flame,
   Library,
   Lightbulb,
   ListChecks,
   MessageCircle,
   NotebookTabs,
+  PenLine,
+  Play,
+  RotateCcw,
   Rocket,
   Search,
   Send,
   Sparkles,
   TerminalSquare,
+  Trophy,
   UserRound,
+  X,
 } from 'lucide-react';
 import { codingAnswersByChapter } from './data/codingAnswers.js';
 import { cNotes, codingQuestionsByChapter, comingSoonLanguages } from './data/cNotes.js';
@@ -29,6 +44,55 @@ const languages = [
   ...comingSoonLanguages.filter((language) => language.id !== 'java'),
 ];
 
+const readyLanguages = languages.filter((language) => language.chapters?.length);
+const STUDY_STORAGE_KEY = 'code-notes-lab-study-v1';
+
+const defaultStudyData = {
+  completed: {},
+  bookmarks: {},
+  notes: {},
+  quizScores: {},
+  playground: {},
+  settings: { difficulty: 'all' },
+  lastLocation: { languageId: 'c', chapterNumber: 1 },
+};
+
+function loadStudyData() {
+  try {
+    const stored = JSON.parse(localStorage.getItem(STUDY_STORAGE_KEY));
+    return {
+      ...defaultStudyData,
+      ...stored,
+      settings: { ...defaultStudyData.settings, ...stored?.settings },
+      lastLocation: { ...defaultStudyData.lastLocation, ...stored?.lastLocation },
+    };
+  } catch {
+    return defaultStudyData;
+  }
+}
+
+function getChapterKey(languageId, chapterNumber) {
+  return `${languageId}:${chapterNumber}`;
+}
+
+function handleHorizontalWheel(event) {
+  const scroller = event.currentTarget;
+  const maxScroll = scroller.scrollWidth - scroller.clientWidth;
+  if (maxScroll <= 1) return;
+
+  const rawDelta = Math.abs(event.deltaX) > Math.abs(event.deltaY)
+    ? event.deltaX
+    : event.deltaY;
+  const delta = rawDelta * (event.deltaMode === 1 ? 16 : 1);
+  const canMoveLeft = delta < 0 && scroller.scrollLeft > 0;
+  const canMoveRight = delta > 0 && scroller.scrollLeft < maxScroll - 1;
+
+  if (canMoveLeft || canMoveRight) {
+    event.preventDefault();
+    scroller.scrollLeft = Math.max(0, Math.min(maxScroll, scroller.scrollLeft + delta));
+  }
+}
+
 const cStarterPrompts = [
   'Explain pointers',
   'Loop revision',
@@ -39,8 +103,12 @@ const cStarterPrompts = [
 ];
 
 function App() {
-  const [activeLanguage, setActiveLanguage] = useState('c');
-  const [activeChapter, setActiveChapter] = useState(1);
+  const [studyData, setStudyData] = useState(loadStudyData);
+  const [activeLanguage, setActiveLanguage] = useState(() => studyData.lastLocation.languageId);
+  const [activeChapter, setActiveChapter] = useState(() => studyData.lastLocation.chapterNumber);
+  const [activeView, setActiveView] = useState('reader');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [showBookmarks, setShowBookmarks] = useState(false);
   const [question, setQuestion] = useState('');
   const [messages, setMessages] = useState(() => [
     {
@@ -52,17 +120,45 @@ function App() {
   ]);
   const inputRef = useRef(null);
 
-  const selectedLanguage = languages.find((language) => language.id === activeLanguage);
+  const selectedLanguage = languages.find((language) => language.id === activeLanguage) ?? cNotes;
   const isReady = Boolean(selectedLanguage.chapters?.length);
   const selectedChapter = selectedLanguage.chapters?.find((chapter) => chapter.number === activeChapter)
     ?? selectedLanguage.chapters?.[0]
     ?? cNotes.chapters[0];
   const starterPrompts = selectedLanguage.prompts ?? cStarterPrompts;
+  const chapterKey = getChapterKey(selectedLanguage.id, selectedChapter.number);
+  const completedCount = selectedLanguage.chapters?.filter(
+    (chapter) => studyData.completed[getChapterKey(selectedLanguage.id, chapter.number)],
+  ).length ?? 0;
+  const progressPercent = selectedLanguage.chapters?.length
+    ? Math.round((completedCount / selectedLanguage.chapters.length) * 100)
+    : 0;
+
+  useEffect(() => {
+    localStorage.setItem(STUDY_STORAGE_KEY, JSON.stringify(studyData));
+  }, [studyData]);
 
   const topicMatches = useMemo(
     () => flattenNotes(selectedLanguage.chapters ?? []),
     [selectedLanguage],
   );
+
+  const searchIndex = useMemo(() => createSearchIndex(readyLanguages), []);
+  const searchResults = useMemo(
+    () => searchNotes(searchIndex, searchTerm),
+    [searchIndex, searchTerm],
+  );
+
+  const updateStudyData = (updater) => {
+    setStudyData((current) => updater(current));
+  };
+
+  const rememberLocation = (languageId, chapterNumber) => {
+    updateStudyData((current) => ({
+      ...current,
+      lastLocation: { languageId, chapterNumber },
+    }));
+  };
 
   const askBot = (rawQuestion) => {
     const cleanQuestion = rawQuestion.trim();
@@ -95,6 +191,8 @@ function App() {
 
   const openChapter = (chapter) => {
     setActiveChapter(chapter.number);
+    setActiveView('reader');
+    rememberLocation(selectedLanguage.id, chapter.number);
     setMessages((current) => [
       ...current,
       {
@@ -109,6 +207,9 @@ function App() {
   const openLanguage = (language) => {
     setActiveLanguage(language.id);
     setActiveChapter(1);
+    setActiveView('reader');
+    setSearchTerm('');
+    rememberLocation(language.id, 1);
     if (language.chapters?.length) {
       setMessages([
         {
@@ -117,6 +218,36 @@ function App() {
           text: `Ready for a ${language.name} study sprint. Pick a chapter or ask for a concept, example, trap, or practice set.`,
         },
       ]);
+    }
+  };
+
+  const openSearchResult = (result) => {
+    setActiveLanguage(result.language.id);
+    setActiveChapter(result.chapter.number);
+    setActiveView('reader');
+    setSearchTerm('');
+    setShowBookmarks(false);
+    rememberLocation(result.language.id, result.chapter.number);
+  };
+
+  const toggleChapterFlag = (collection) => {
+    updateStudyData((current) => ({
+      ...current,
+      [collection]: {
+        ...current[collection],
+        [chapterKey]: !current[collection][chapterKey],
+      },
+    }));
+  };
+
+  const moveChapter = (offset) => {
+    const nextIndex = selectedLanguage.chapters.findIndex(
+      (chapter) => chapter.number === selectedChapter.number,
+    ) + offset;
+    const nextChapter = selectedLanguage.chapters[nextIndex];
+    if (nextChapter) {
+      openChapter(nextChapter);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     }
   };
 
@@ -136,10 +267,21 @@ function App() {
         <div className="streak-card">
           <Flame size={20} />
           <div>
-            <span>Focus Path</span>
-            <strong>{isReady ? `${selectedLanguage.chapters.length} ${selectedLanguage.name} levels loaded` : 'More tracks coming'}</strong>
+            <span>{isReady ? `${progressPercent}% complete` : 'Focus Path'}</span>
+            <strong>{isReady ? `${completedCount} of ${selectedLanguage.chapters.length} chapters` : 'More tracks coming'}</strong>
+            {isReady && <i><b style={{ width: `${progressPercent}%` }} /></i>}
           </div>
         </div>
+
+        <button
+          className="bookmark-shelf-button"
+          onClick={() => setShowBookmarks((current) => !current)}
+          type="button"
+        >
+          <BookmarkCheck size={18} />
+          <span>Bookmarks</span>
+          <strong>{Object.values(studyData.bookmarks).filter(Boolean).length}</strong>
+        </button>
 
         <div className="language-list" aria-label="Language list">
           {languages.map((language) => (
@@ -185,7 +327,21 @@ function App() {
         {!isReady ? (
           <ComingSoon language={selectedLanguage} />
         ) : (
-          <div className="bot-grid">
+          <>
+            <StudyToolbar
+              activeView={activeView}
+              bookmarks={studyData.bookmarks}
+              onChangeView={setActiveView}
+              onCloseBookmarks={() => setShowBookmarks(false)}
+              onOpenResult={openSearchResult}
+              onToggleBookmarks={() => setShowBookmarks((current) => !current)}
+              searchResults={searchResults}
+              searchTerm={searchTerm}
+              setSearchTerm={setSearchTerm}
+              showBookmarks={showBookmarks}
+            />
+
+            {activeView === 'reader' && <div className="bot-grid">
             <section className="chat-panel" aria-label="Notes bot chat">
               <div className="chat-header">
                 <div className="chat-icon"><MessageCircle size={21} /></div>
@@ -234,16 +390,69 @@ function App() {
             <section className="study-panel" aria-label="Selected chapter notes">
               <ChapterPicker
                 activeChapter={activeChapter}
+                bookmarks={studyData.bookmarks}
                 chapters={selectedLanguage.chapters}
+                completed={studyData.completed}
+                languageId={selectedLanguage.id}
                 onOpenChapter={openChapter}
               />
               <ChapterNotebook
                 chapter={selectedChapter}
+                difficulty={studyData.settings.difficulty}
+                isBookmarked={Boolean(studyData.bookmarks[chapterKey])}
+                isCompleted={Boolean(studyData.completed[chapterKey])}
                 language={selectedLanguage}
+                note={studyData.notes[chapterKey] ?? ''}
+                onChangeDifficulty={(difficulty) => updateStudyData((current) => ({
+                  ...current,
+                  settings: { ...current.settings, difficulty },
+                }))}
+                onChangeNote={(note) => updateStudyData((current) => ({
+                  ...current,
+                  notes: { ...current.notes, [chapterKey]: note },
+                }))}
+                onMoveChapter={moveChapter}
+                onToggleBookmark={() => toggleChapterFlag('bookmarks')}
+                onToggleComplete={() => toggleChapterFlag('completed')}
                 total={selectedLanguage.chapters.length}
               />
             </section>
-          </div>
+            </div>}
+
+            {activeView === 'quiz' && (
+              <QuizMode
+                chapter={selectedChapter}
+                language={selectedLanguage}
+                onOpenChapter={(chapter) => {
+                  setActiveChapter(chapter.number);
+                  rememberLocation(selectedLanguage.id, chapter.number);
+                }}
+                onSaveScore={(score) => updateStudyData((current) => ({
+                  ...current,
+                  quizScores: {
+                    ...current.quizScores,
+                    [chapterKey]: {
+                      attempts: (current.quizScores[chapterKey]?.attempts ?? 0) + 1,
+                      best: Math.max(current.quizScores[chapterKey]?.best ?? 0, score),
+                    },
+                  },
+                }))}
+                savedScore={studyData.quizScores[chapterKey]}
+              />
+            )}
+
+            {activeView === 'playground' && (
+              <CodePlayground
+                chapter={selectedChapter}
+                draft={studyData.playground[selectedLanguage.id]}
+                language={selectedLanguage}
+                onChangeDraft={(draft) => updateStudyData((current) => ({
+                  ...current,
+                  playground: { ...current.playground, [selectedLanguage.id]: draft },
+                }))}
+              />
+            )}
+          </>
         )}
       </section>
     </main>
@@ -301,9 +510,103 @@ function HeroVisual({ chapter }) {
   );
 }
 
-function ChapterPicker({ activeChapter, chapters, onOpenChapter }) {
+function StudyToolbar({
+  activeView,
+  bookmarks,
+  onChangeView,
+  onCloseBookmarks,
+  onOpenResult,
+  onToggleBookmarks,
+  searchResults,
+  searchTerm,
+  setSearchTerm,
+  showBookmarks,
+}) {
+  const bookmarkResults = getBookmarkedResults(bookmarks);
+  const visibleResults = searchTerm.trim() ? searchResults : (showBookmarks ? bookmarkResults : []);
+
   return (
-    <nav className="chapter-strip" aria-label="Language chapters">
+    <div className="study-toolbar">
+      <div className="view-switcher" aria-label="Study view">
+        <button
+          className={activeView === 'reader' ? 'is-active' : ''}
+          onClick={() => onChangeView('reader')}
+          type="button"
+        >
+          <BookOpen size={17} /> Reader
+        </button>
+        <button
+          className={activeView === 'quiz' ? 'is-active' : ''}
+          onClick={() => onChangeView('quiz')}
+          type="button"
+        >
+          <Trophy size={17} /> Quiz
+        </button>
+        <button
+          className={activeView === 'playground' ? 'is-active' : ''}
+          onClick={() => onChangeView('playground')}
+          type="button"
+        >
+          <TerminalSquare size={17} /> Playground
+        </button>
+      </div>
+
+      <div className="global-search">
+        <label>
+          <Search size={18} />
+          <input
+            aria-label="Search all C and Java notes"
+            onChange={(event) => {
+              setSearchTerm(event.target.value);
+              if (event.target.value) onCloseBookmarks();
+            }}
+            placeholder="Search C and Java notes..."
+            value={searchTerm}
+          />
+          {searchTerm && (
+            <button aria-label="Clear search" onClick={() => setSearchTerm('')} type="button">
+              <X size={17} />
+            </button>
+          )}
+        </label>
+        <button
+          className={`toolbar-bookmark-button ${showBookmarks ? 'is-active' : ''}`}
+          onClick={onToggleBookmarks}
+          title="Show bookmarks"
+          type="button"
+        >
+          <Bookmark size={18} />
+        </button>
+
+        {(searchTerm.trim() || showBookmarks) && (
+          <div className="search-results">
+            <div className="search-results-head">
+              <strong>{searchTerm.trim() ? 'Search results' : 'Bookmarked chapters'}</strong>
+              <span>{visibleResults.length}</span>
+            </div>
+            {visibleResults.length ? visibleResults.map((result) => (
+              <button key={`${result.language.id}:${result.chapter.number}:${result.topic ?? ''}`} onClick={() => onOpenResult(result)} type="button">
+                <span>{result.language.name} · Chapter {result.chapter.number}</span>
+                <strong>{result.topic ?? result.chapter.title}</strong>
+                <p>{result.point ?? result.chapter.hook}</p>
+              </button>
+            )) : (
+              <p className="empty-result">No matching notes yet.</p>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function ChapterPicker({ activeChapter, bookmarks, chapters, completed, languageId, onOpenChapter }) {
+  return (
+    <nav
+      className="chapter-strip"
+      aria-label="Language chapters"
+      onWheel={handleHorizontalWheel}
+    >
       {chapters.map((chapter) => (
         <button
           className={`chapter-card ${activeChapter === chapter.number ? 'is-active' : ''}`}
@@ -314,7 +617,11 @@ function ChapterPicker({ activeChapter, chapters, onOpenChapter }) {
           <span className="chapter-number">{chapter.number.toString().padStart(2, '0')}</span>
           <span className="chapter-card-copy">
             <strong>{chapter.title}</strong>
-            <small>{chapter.revisionOnly ? 'Revision route' : `${chapter.topics.length} concepts`}</small>
+            <small>
+              {completed[getChapterKey(languageId, chapter.number)] && <CheckCircle2 size={13} />}
+              {bookmarks[getChapterKey(languageId, chapter.number)] && <Bookmark size={13} />}
+              {chapter.revisionOnly ? 'Revision route' : `${chapter.topics.length} concepts`}
+            </small>
           </span>
         </button>
       ))}
@@ -322,9 +629,48 @@ function ChapterPicker({ activeChapter, chapters, onOpenChapter }) {
   );
 }
 
-function ChapterNotebook({ chapter, language, total }) {
+function ChapterNotebook({
+  chapter,
+  difficulty,
+  isBookmarked,
+  isCompleted,
+  language,
+  note,
+  onChangeDifficulty,
+  onChangeNote,
+  onMoveChapter,
+  onToggleBookmark,
+  onToggleComplete,
+  total,
+}) {
   return (
     <article className="notebook">
+      <div className="chapter-actionbar">
+        <div className="chapter-actionbar-copy">
+          <span>Chapter {chapter.number}</span>
+          <strong>{isCompleted ? 'Completed' : 'In progress'}</strong>
+        </div>
+        <div className="chapter-action-buttons">
+          <button
+            className={isBookmarked ? 'is-active' : ''}
+            onClick={onToggleBookmark}
+            title={isBookmarked ? 'Remove bookmark' : 'Bookmark chapter'}
+            type="button"
+          >
+            {isBookmarked ? <BookmarkCheck size={18} /> : <Bookmark size={18} />}
+            <span>{isBookmarked ? 'Bookmarked' : 'Bookmark'}</span>
+          </button>
+          <button
+            className={isCompleted ? 'is-complete' : ''}
+            onClick={onToggleComplete}
+            type="button"
+          >
+            {isCompleted ? <CheckCircle2 size={18} /> : <Circle size={18} />}
+            <span>{isCompleted ? 'Completed' : 'Mark complete'}</span>
+          </button>
+        </div>
+      </div>
+
       <div className="notebook-cover">
         <div>
           <p className="chapter-index">Chapter {chapter.number} of {total}</p>
@@ -436,8 +782,61 @@ function ChapterNotebook({ chapter, language, total }) {
         </div>
       </div>
 
-      {!chapter.revisionOnly && <CodingQuestions chapter={chapter} language={language} />}
+      {!chapter.revisionOnly && (
+        <CodingQuestions
+          chapter={chapter}
+          difficulty={difficulty}
+          language={language}
+          onChangeDifficulty={onChangeDifficulty}
+        />
+      )}
+
+      <PersonalNotes note={note} onChange={onChangeNote} />
+
+      <ChapterNavigation
+        canGoNext={chapter.number < total}
+        canGoPrevious={chapter.number > 1}
+        chapter={chapter}
+        onMove={onMoveChapter}
+      />
     </article>
+  );
+}
+
+function PersonalNotes({ note, onChange }) {
+  return (
+    <div className="note-card personal-notes">
+      <div className="section-heading">
+        <PenLine size={20} />
+        <h4>My Chapter Notes</h4>
+        <span><Check size={14} /> Saved offline</span>
+      </div>
+      <textarea
+        aria-label="Personal chapter notes"
+        onChange={(event) => onChange(event.target.value)}
+        placeholder="Write your own explanation, memory trick, or mistake to avoid..."
+        value={note}
+      />
+    </div>
+  );
+}
+
+function ChapterNavigation({ canGoNext, canGoPrevious, chapter, onMove }) {
+  return (
+    <nav className="chapter-navigation" aria-label="Chapter navigation">
+      <button disabled={!canGoPrevious} onClick={() => onMove(-1)} type="button">
+        <ChevronLeft size={19} />
+        <span>Previous</span>
+      </button>
+      <div>
+        <span>Current chapter</span>
+        <strong>{chapter.number}. {chapter.title}</strong>
+      </div>
+      <button disabled={!canGoNext} onClick={() => onMove(1)} type="button">
+        <span>Next</span>
+        <ChevronRight size={19} />
+      </button>
+    </nav>
   );
 }
 
@@ -512,7 +911,7 @@ function CodeExplanation({ code, idea, languageId }) {
   );
 }
 
-function CodingQuestions({ chapter, language }) {
+function CodingQuestions({ chapter, difficulty, language, onChangeDifficulty }) {
   const questions = chapter.questions
     ?? (language.id === 'c' ? codingQuestionsByChapter[chapter.number] : []);
   const answers = chapter.answers
@@ -520,20 +919,34 @@ function CodingQuestions({ chapter, language }) {
 
   if (questions.length === 0) return null;
 
+  const visibleQuestions = questions
+    .map((question, index) => ({
+      answer: answers[index],
+      difficulty: getQuestionDifficulty(index),
+      index,
+      question,
+    }))
+    .filter((item) => difficulty === 'all' || item.difficulty === difficulty);
+
   return (
     <div className="note-card coding-questions">
       <div className="section-heading">
         <BookOpen size={20} />
         <h4>5 Coding Questions</h4>
       </div>
+      <DifficultyFilter value={difficulty} onChange={onChangeDifficulty} />
       <ol>
-        {questions.map((question, index) => (
-          <li key={question}>
-            <div className="question-text">{question}</div>
-            {answers[index] && (
+        {visibleQuestions.map((item) => (
+          <li className={`difficulty-${item.difficulty}`} key={item.question}>
+            <div className="question-meta">
+              <span>{item.difficulty}</span>
+              <small>Question {item.index + 1}</small>
+            </div>
+            <div className="question-text">{item.question}</div>
+            {item.answer && (
               <details className="answer-reveal">
                 <summary>Answer</summary>
-                <SyntaxBlock code={answers[index]} compact languageId={language.id} />
+                <SyntaxBlock code={item.answer} compact languageId={language.id} />
               </details>
             )}
           </li>
@@ -541,6 +954,30 @@ function CodingQuestions({ chapter, language }) {
       </ol>
     </div>
   );
+}
+
+function DifficultyFilter({ onChange, value }) {
+  return (
+    <div className="difficulty-filter" aria-label="Question difficulty">
+      <Filter size={16} />
+      {['all', 'beginner', 'intermediate', 'exam'].map((level) => (
+        <button
+          className={value === level ? 'is-active' : ''}
+          key={level}
+          onClick={() => onChange(level)}
+          type="button"
+        >
+          {level}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function getQuestionDifficulty(index) {
+  if (index < 2) return 'beginner';
+  if (index < 4) return 'intermediate';
+  return 'exam';
 }
 
 function SyntaxBlock({ code, compact = false, languageId = 'c' }) {
@@ -588,6 +1025,7 @@ function SyntaxBlock({ code, compact = false, languageId = 'c' }) {
         onPointerLeave={stopDrag}
         onPointerMove={moveDrag}
         onPointerUp={stopDrag}
+        onWheel={handleHorizontalWheel}
         ref={blockRef}
       >
         <code dangerouslySetInnerHTML={{ __html: highlightCode(code, languageId) }} />
@@ -616,6 +1054,242 @@ function ComingSoon({ language }) {
         <p className="eyebrow">{language.status}</p>
         <h3>{language.name} notes are ready for your next source.</h3>
         <p>{language.teaser}</p>
+      </div>
+    </section>
+  );
+}
+
+function QuizMode({ chapter, language, onOpenChapter, onSaveScore, savedScore }) {
+  const questions = useMemo(
+    () => createQuizQuestions(chapter, language),
+    [chapter, language],
+  );
+  const [answers, setAnswers] = useState({});
+  const [result, setResult] = useState(null);
+
+  useEffect(() => {
+    setAnswers({});
+    setResult(null);
+  }, [chapter.number, language.id]);
+
+  const answerCount = Object.keys(answers).length;
+  const chapterIndex = language.chapters.findIndex((item) => item.number === chapter.number);
+
+  const submitQuiz = () => {
+    if (answerCount !== questions.length) return;
+    const correct = questions.reduce(
+      (total, item, index) => total + (answers[index] === item.correctIndex ? 1 : 0),
+      0,
+    );
+    const percentage = Math.round((correct / questions.length) * 100);
+    setResult({ correct, percentage });
+    onSaveScore(percentage);
+  };
+
+  return (
+    <section className="quiz-mode">
+      <header className="tool-page-header">
+        <div>
+          <p className="eyebrow">Chapter Challenge</p>
+          <h3>{language.name} Quiz · {chapter.title}</h3>
+        </div>
+        <div className="quiz-summary">
+          <span><Trophy size={18} /> Best {savedScore?.best ?? 0}%</span>
+          <span>{savedScore?.attempts ?? 0} attempts</span>
+        </div>
+      </header>
+
+      <div className="quiz-chapter-nav">
+        <button
+          disabled={chapterIndex <= 0}
+          onClick={() => onOpenChapter(language.chapters[chapterIndex - 1])}
+          type="button"
+        >
+          <ArrowLeft size={17} /> Previous chapter
+        </button>
+        <span>{chapter.number} / {language.chapters.length}</span>
+        <button
+          disabled={chapterIndex >= language.chapters.length - 1}
+          onClick={() => onOpenChapter(language.chapters[chapterIndex + 1])}
+          type="button"
+        >
+          Next chapter <ArrowRight size={17} />
+        </button>
+      </div>
+
+      <div className="quiz-list">
+        {questions.map((item, questionIndex) => (
+          <article className="quiz-question" key={item.prompt}>
+            <div className="quiz-question-head">
+              <span>{questionIndex + 1}</span>
+              <div>
+                <small>{item.difficulty}</small>
+                <h4>{item.prompt}</h4>
+              </div>
+            </div>
+            {item.code && <SyntaxBlock code={item.code} compact languageId={language.id} />}
+            <div className="quiz-options">
+              {item.options.map((option, optionIndex) => {
+                const isChosen = answers[questionIndex] === optionIndex;
+                const showCorrect = result && optionIndex === item.correctIndex;
+                const showWrong = result && isChosen && optionIndex !== item.correctIndex;
+                return (
+                  <button
+                    className={`${isChosen ? 'is-chosen' : ''} ${showCorrect ? 'is-correct' : ''} ${showWrong ? 'is-wrong' : ''}`}
+                    disabled={Boolean(result)}
+                    key={option}
+                    onClick={() => setAnswers((current) => ({ ...current, [questionIndex]: optionIndex }))}
+                    type="button"
+                  >
+                    <span>{String.fromCharCode(65 + optionIndex)}</span>
+                    {option}
+                  </button>
+                );
+              })}
+            </div>
+          </article>
+        ))}
+      </div>
+
+      <div className="quiz-submit-bar">
+        <div>
+          <span>{answerCount} of {questions.length} answered</span>
+          {result && <strong>{result.correct}/{questions.length} correct · {result.percentage}%</strong>}
+        </div>
+        {result ? (
+          <button onClick={() => { setAnswers({}); setResult(null); }} type="button">
+            <RotateCcw size={18} /> Try again
+          </button>
+        ) : (
+          <button disabled={answerCount !== questions.length} onClick={submitQuiz} type="button">
+            <CheckCircle2 size={18} /> Check answers
+          </button>
+        )}
+      </div>
+    </section>
+  );
+}
+
+function CodePlayground({ chapter, draft, language, onChangeDraft }) {
+  const fallbackDraft = useMemo(() => ({
+    code: getPlaygroundTemplate(language.id),
+    stdin: '',
+  }), [language.id]);
+  const currentDraft = draft ?? fallbackDraft;
+  const [output, setOutput] = useState('Ready.');
+  const [isRunning, setIsRunning] = useState(false);
+  const [isOnline, setIsOnline] = useState(() => navigator.onLine);
+
+  useEffect(() => {
+    const updateConnection = () => setIsOnline(navigator.onLine);
+    window.addEventListener('online', updateConnection);
+    window.addEventListener('offline', updateConnection);
+    return () => {
+      window.removeEventListener('online', updateConnection);
+      window.removeEventListener('offline', updateConnection);
+    };
+  }, []);
+
+  useEffect(() => {
+    setOutput('Ready.');
+  }, [language.id]);
+
+  const updateDraft = (changes) => onChangeDraft({ ...currentDraft, ...changes });
+
+  const runCode = async () => {
+    if (!isOnline) {
+      setOutput('Offline: your draft is saved. Connect to the internet to compile and run it.');
+      return;
+    }
+
+    setIsRunning(true);
+    setOutput('Compiling...');
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => controller.abort(), 20000);
+
+    try {
+      const response = await fetch('https://wandbox.org/api/compile.json', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          code: currentDraft.code,
+          compiler: language.id === 'java' ? 'openjdk-jdk-21+35' : 'gcc-13.2.0-c',
+          stdin: currentDraft.stdin,
+        }),
+        signal: controller.signal,
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.message || `Compiler returned ${response.status}`);
+
+      const sections = [
+        data.compiler_message && `Compiler:\n${data.compiler_message.trim()}`,
+        data.program_output && `Output:\n${data.program_output.trimEnd()}`,
+        data.program_error && `Runtime error:\n${data.program_error.trim()}`,
+      ].filter(Boolean);
+      setOutput(sections.join('\n\n') || `Program finished with status ${data.status}.`);
+    } catch (error) {
+      setOutput(error.name === 'AbortError'
+        ? 'The compiler took too long to respond. Try again.'
+        : `Could not run the code. Your draft is still saved.\n${error.message}`);
+    } finally {
+      window.clearTimeout(timeout);
+      setIsRunning(false);
+    }
+  };
+
+  return (
+    <section className="playground-page">
+      <header className="tool-page-header">
+        <div>
+          <p className="eyebrow">Edit. Run. Learn.</p>
+          <h3>{language.name} Playground</h3>
+        </div>
+        <span className={`connection-status ${isOnline ? 'is-online' : ''}`}>
+          <i /> {isOnline ? 'Online compiler' : 'Offline draft'}
+        </span>
+      </header>
+
+      <div className="playground-toolbar">
+        <strong>{language.id === 'java' ? 'Main.java' : 'main.c'}</strong>
+        <div>
+          <button onClick={() => updateDraft({ code: chapter.example })} type="button">
+            <BookOpen size={17} /> Load chapter example
+          </button>
+          <button onClick={() => updateDraft({ code: fallbackDraft.code, stdin: '' })} type="button">
+            <RotateCcw size={17} /> Reset
+          </button>
+          <button className="run-button" disabled={isRunning} onClick={runCode} type="button">
+            <Play size={17} fill="currentColor" /> {isRunning ? 'Running' : 'Run'}
+          </button>
+        </div>
+      </div>
+
+      <div className="playground-grid">
+        <label className="editor-panel">
+          <span>Code</span>
+          <textarea
+            aria-label={`${language.name} code editor`}
+            onChange={(event) => updateDraft({ code: event.target.value })}
+            spellCheck="false"
+            value={currentDraft.code}
+          />
+        </label>
+        <div className="runner-side">
+          <label className="stdin-panel">
+            <span>Input</span>
+            <textarea
+              aria-label="Program standard input"
+              onChange={(event) => updateDraft({ stdin: event.target.value })}
+              placeholder="Input supplied to scanf or Scanner..."
+              spellCheck="false"
+              value={currentDraft.stdin}
+            />
+          </label>
+          <div className="output-panel">
+            <span>Console</span>
+            <pre aria-live="polite">{output}</pre>
+          </div>
+        </div>
       </div>
     </section>
   );
@@ -1138,6 +1812,126 @@ function buildAnswer(question, fallbackChapter, topicMatches, language) {
     match: null,
     text: `I could not find an exact topic, so I opened the current chapter: ${chapter.title}. Try a chapter number or a keyword from the topic table.`,
   };
+}
+
+function createSearchIndex(languageList) {
+  return languageList.flatMap((language) => language.chapters.flatMap((chapter) => [
+    {
+      chapter,
+      language,
+      point: chapter.hook,
+      text: `${language.name} ${chapter.number} ${chapter.title} ${chapter.hook}`.toLowerCase(),
+      topic: null,
+    },
+    ...chapter.topics.map(([topic, point]) => ({
+      chapter,
+      language,
+      point,
+      text: `${language.name} ${chapter.number} ${chapter.title} ${topic} ${point}`.toLowerCase(),
+      topic,
+    })),
+  ]));
+}
+
+function searchNotes(index, term) {
+  const words = term.toLowerCase().trim().split(/\s+/).filter(Boolean);
+  if (!words.length) return [];
+
+  return index
+    .map((item) => ({
+      ...item,
+      score: words.reduce((total, word) => total + (item.text.includes(word) ? 1 : 0), 0),
+    }))
+    .filter((item) => item.score > 0)
+    .sort((a, b) => b.score - a.score || a.chapter.number - b.chapter.number)
+    .slice(0, 12);
+}
+
+function getBookmarkedResults(bookmarks) {
+  return readyLanguages.flatMap((language) => language.chapters
+    .filter((chapter) => bookmarks[getChapterKey(language.id, chapter.number)])
+    .map((chapter) => ({ chapter, language, point: chapter.hook, topic: null })));
+}
+
+function createQuizQuestions(chapter, language) {
+  const topics = chapter.topics.slice(0, 5);
+  const questions = topics.map(([topic, point], index) => {
+    const distractors = topics
+      .filter((_, otherIndex) => otherIndex !== index)
+      .map(([, otherPoint]) => otherPoint);
+    while (distractors.length < 3) {
+      distractors.push(chapter.trap, chapter.hook, 'None of these descriptions matches the topic.');
+    }
+    const baseOptions = [point, ...distractors.slice(0, 3)];
+    const rotation = index % baseOptions.length;
+    const options = [...baseOptions.slice(rotation), ...baseOptions.slice(0, rotation)];
+    return {
+      correctIndex: options.indexOf(point),
+      difficulty: getQuestionDifficulty(index),
+      options,
+      prompt: `Which explanation best matches “${topic}”?`,
+    };
+  });
+
+  const outputExample = chapter.topics
+    .map(([, , code]) => ({ code, output: predictLiteralOutput(code) }))
+    .find((item) => item.output);
+
+  if (outputExample && questions.length) {
+    const correct = outputExample.output;
+    const baseOptions = [correct, 'No output', 'Compilation error', 'It waits for input'];
+    const options = [baseOptions[2], baseOptions[0], baseOptions[3], baseOptions[1]];
+    questions[questions.length - 1] = {
+      code: outputExample.code,
+      correctIndex: options.indexOf(correct),
+      difficulty: 'exam',
+      options,
+      prompt: `Predict the exact output of this ${language.name} snippet.`,
+    };
+  }
+
+  return questions;
+}
+
+function predictLiteralOutput(code) {
+  if (!code) return null;
+  const outputCalls = code.match(/(?:puts|printf|System\.out\.(?:print|println|printf))\s*\(/g) ?? [];
+  const literalPattern = /(?:puts|System\.out\.println)\(\s*"((?:\\.|[^"\\])*)"\s*\)\s*;/g;
+  const matches = [...code.matchAll(literalPattern)];
+  if (!matches.length || matches.length !== outputCalls.length) return null;
+
+  return matches
+    .map((match) => match[1]
+      .replace(/\\n/g, '\n')
+      .replace(/\\t/g, '\t')
+      .replace(/\\"/g, '"')
+      .replace(/\\\\/g, '\\'))
+    .join('\n');
+}
+
+function getPlaygroundTemplate(languageId) {
+  if (languageId === 'java') {
+    return `import java.util.Scanner;
+
+class Main {
+  public static void main(String[] args) {
+    Scanner input = new Scanner(System.in);
+    System.out.print("Enter a number: ");
+    int number = input.hasNextInt() ? input.nextInt() : 5;
+    System.out.println("Square = " + number * number);
+  }
+}`;
+  }
+
+  return `#include <stdio.h>
+
+int main(void) {
+  int number = 5;
+  printf("Enter a number: ");
+  if (scanf("%d", &number) != 1) number = 5;
+  printf("Square = %d\\n", number * number);
+  return 0;
+}`;
 }
 
 export default App;
