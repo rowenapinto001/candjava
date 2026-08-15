@@ -817,12 +817,12 @@ h1 {
   position: relative;
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
-  gap: 10px;
+  gap: 8px;
   align-items: stretch;
   flex: 0 0 auto;
-  width: 214px;
-  min-height: 76px;
-  padding: 11px;
+  width: 174px;
+  min-height: 58px;
+  padding: 7px;
   overflow: hidden;
   color: #33433f;
   text-align: left;
@@ -857,11 +857,11 @@ h1 {
   display: grid;
   place-items: center;
   flex: 0 0 auto;
-  width: 42px;
+  width: 34px;
   height: 100%;
-  min-height: 52px;
+  min-height: 42px;
   color: #0e7490;
-  font-size: 0.9rem;
+  font-size: 0.78rem;
   font-weight: 900;
   background:
     linear-gradient(135deg, #e3f4f7, #f7fff9);
@@ -871,14 +871,15 @@ h1 {
 .chapter-card-copy {
   display: grid;
   align-content: center;
-  gap: 6px;
+  gap: 3px;
   min-width: 0;
 }
 
 .chapter-card-copy strong {
   position: relative;
   z-index: 1;
-  line-height: 1.18;
+  font-size: 0.88rem;
+  line-height: 1.12;
   overflow-wrap: anywhere;
 }
 
@@ -889,7 +890,7 @@ h1 {
   gap: 5px;
   align-items: center;
   color: #68756f;
-  font-size: 0.78rem;
+  font-size: 0.68rem;
   font-weight: 800;
 }
 
@@ -975,83 +976,6 @@ h1 {
   color: #14532d;
   background: #dcfce7;
   border-color: #86d9a3;
-}
-
-.notebook-cover {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 18px;
-  align-items: end;
-  padding: 24px;
-  color: #f8fbf2;
-  background:
-    linear-gradient(135deg, rgba(20, 49, 47, 0.97), rgba(14, 116, 144, 0.94)),
-    repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.08) 0 1px, transparent 1px 14px);
-  border-radius: 8px;
-  box-shadow: 0 18px 40px rgba(20, 49, 47, 0.18);
-  position: relative;
-  overflow: hidden;
-}
-
-.notebook-cover::after {
-  position: absolute;
-  right: -55px;
-  top: -70px;
-  width: 190px;
-  height: 190px;
-  content: "";
-  background: rgba(247, 211, 92, 0.18);
-  border-radius: 50%;
-}
-
-.chapter-index {
-  position: relative;
-  z-index: 1;
-  display: inline-flex;
-  margin-bottom: 12px;
-  padding: 7px 10px;
-  color: #142620;
-  font-weight: 850;
-  background: #f7d35c;
-  border-radius: 6px;
-}
-
-.notebook-cover h3 {
-  position: relative;
-  z-index: 1;
-  margin-bottom: 12px;
-  font-size: clamp(2rem, 4vw, 3.5rem);
-  line-height: 0.98;
-}
-
-.notebook-cover p:last-child {
-  position: relative;
-  z-index: 1;
-  max-width: 900px;
-  margin-bottom: 0;
-  color: #d7e6df;
-  line-height: 1.62;
-}
-
-.chapter-metrics {
-  position: relative;
-  z-index: 1;
-  display: grid;
-  gap: 8px;
-  min-width: 150px;
-}
-
-.chapter-metrics span {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  padding: 9px 10px;
-  color: #14312f;
-  font-size: 0.84rem;
-  font-weight: 900;
-  background: rgba(248, 251, 242, 0.92);
-  border: 1px solid rgba(255, 255, 255, 0.34);
-  border-radius: 8px;
 }
 
 .note-card,
@@ -2223,29 +2147,13 @@ h1 {
 
   .study-panel,
   .note-card,
-  .code-card,
-  .notebook-cover {
+  .code-card {
     padding: 14px;
   }
 
   .chapter-card {
-    width: 198px;
-    min-height: 70px;
-  }
-
-  .notebook-cover {
-    grid-template-columns: 1fr;
-  }
-
-  .chapter-metrics {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    min-width: 0;
-  }
-
-  .chapter-metrics span {
-    justify-content: center;
-    padding: 8px;
-    text-align: center;
+    width: 164px;
+    min-height: 56px;
   }
 
   .topic-table-head {
@@ -2300,10 +2208,6 @@ h1 {
 
   .language-list {
     grid-template-columns: 1fr 1fr;
-  }
-
-  .notebook-cover h3 {
-    font-size: 2.05rem;
   }
 
   .chapter-actionbar,
@@ -2381,11 +2285,31 @@ h1 {
   }
 
   .chapter-card {
-    width: 178px;
+    width: 142px;
+    min-height: 48px;
+    gap: 6px;
+    padding: 6px;
   }
 
-  .chapter-metrics {
-    grid-template-columns: 1fr;
+  .chapter-number {
+    align-self: center;
+    width: 30px;
+    height: 34px;
+    min-height: 34px;
+    font-size: 0.72rem;
+  }
+
+  .chapter-card-copy {
+    gap: 0;
+  }
+
+  .chapter-card-copy strong {
+    font-size: 0.78rem;
+    line-height: 1.08;
+  }
+
+  .chapter-card-copy small {
+    display: none;
   }
 
   .ask-form {

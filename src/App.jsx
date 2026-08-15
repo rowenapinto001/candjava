@@ -621,7 +621,6 @@ function App() {
                 onMoveChapter={moveChapter}
                 onToggleBookmark={() => toggleChapterFlag('bookmarks')}
                 onToggleComplete={() => toggleChapterFlag('completed')}
-                total={selectedLanguage.chapters.length}
               />
             </section>
             </div>}
@@ -1067,7 +1066,6 @@ function ChapterNotebook({
   onMoveChapter,
   onToggleBookmark,
   onToggleComplete,
-  total,
 }) {
   return (
     <article className="notebook">
@@ -1094,19 +1092,6 @@ function ChapterNotebook({
             {isCompleted ? <CheckCircle2 size={18} /> : <Circle size={18} />}
             <span>{isCompleted ? 'Completed' : 'Mark complete'}</span>
           </button>
-        </div>
-      </div>
-
-      <div className="notebook-cover">
-        <div>
-          <p className="chapter-index">Chapter {chapter.number} of {total}</p>
-          <h3>{chapter.title}</h3>
-          <p>{chapter.hook}</p>
-        </div>
-        <div className="chapter-metrics" aria-label="Chapter summary">
-          <span><Sparkles size={16} /> {chapter.topics.length} topics</span>
-          <span><TerminalSquare size={16} /> Examples</span>
-          <span><BookOpen size={16} /> {chapter.revisionOnly ? 'Revision' : 'Questions'}</span>
         </div>
       </div>
 
@@ -1220,7 +1205,7 @@ function ChapterNotebook({
       <PersonalNotes note={note} onChange={onChangeNote} />
 
       <ChapterNavigation
-        canGoNext={chapter.number < total}
+        canGoNext={chapter.number < language.chapters.length}
         canGoPrevious={chapter.number > 1}
         chapter={chapter}
         onMove={onMoveChapter}
