@@ -1,5 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { Capacitor } from '@capacitor/core';
+import { LocalNotifications } from '@capacitor/local-notifications';
 import {
+  Accessibility,
+  AlarmClock,
   AlertTriangle,
   ArrowLeft,
   ArrowRight,
@@ -7,12 +11,14 @@ import {
   Bookmark,
   BookmarkCheck,
   Bot,
+  CalendarDays,
   Check,
   CheckCircle2,
   ChevronLeft,
   ChevronRight,
   Circle,
   Code2,
+  Contrast,
   FileText,
   Filter,
   Flame,
@@ -20,16 +26,23 @@ import {
   Lightbulb,
   ListChecks,
   MessageCircle,
+  Minus,
+  Moon,
   NotebookTabs,
   PenLine,
   Play,
+  Plus,
   RotateCcw,
   Rocket,
   Search,
   Send,
+  Settings2,
   Sparkles,
+  Sun,
   TerminalSquare,
+  Trash2,
   Trophy,
+  Type,
   UserRound,
   X,
 } from 'lucide-react';
@@ -46,6 +59,7 @@ const languages = [
 
 const readyLanguages = languages.filter((language) => language.chapters?.length);
 const STUDY_STORAGE_KEY = 'code-notes-lab-study-v1';
+const REMINDER_NOTIFICATION_ID = 7301;
 
 const defaultStudyData = {
   completed: {},
@@ -53,7 +67,17 @@ const defaultStudyData = {
   notes: {},
   quizScores: {},
   playground: {},
-  settings: { difficulty: 'all' },
+  settings: {
+    difficulty: 'all',
+    fontScale: 1,
+    reducedMotion: false,
+    theme: 'light',
+  },
+  daily: {
+    activity: {},
+    goalMinutes: 20,
+    reminder: { enabled: false, time: '19:00' },
+  },
   lastLocation: { languageId: 'c', chapterNumber: 1 },
 };
 
@@ -64,11 +88,54 @@ function loadStudyData() {
       ...defaultStudyData,
       ...stored,
       settings: { ...defaultStudyData.settings, ...stored?.settings },
+      daily: {
+        ...defaultStudyData.daily,
+        ...stored?.daily,
+        activity: { ...defaultStudyData.daily.activity, ...stored?.daily?.activity },
+        reminder: { ...defaultStudyData.daily.reminder, ...stored?.daily?.reminder },
+      },
       lastLocation: { ...defaultStudyData.lastLocation, ...stored?.lastLocation },
     };
   } catch {
     return defaultStudyData;
   }
+}
+
+function getDateKey(date = new Date()) {
+  const offset = date.getTimezoneOffset() * 60000;
+  return new Date(date.getTime() - offset).toISOString().slice(0, 10);
+}
+
+function getStudyStreak(activity) {
+  let streak = 0;
+  const cursor = new Date();
+  const today = activity[getDateKey(cursor)];
+  if (!today || !hasStudyActivity(today)) cursor.setDate(cursor.getDate() - 1);
+
+  while (hasStudyActivity(activity[getDateKey(cursor)])) {
+    streak += 1;
+    cursor.setDate(cursor.getDate() - 1);
+  }
+  return streak;
+}
+
+function hasStudyActivity(day) {
+  return Boolean(day && ((day.minutes ?? 0) + (day.questions ?? 0) + (day.runs ?? 0) + (day.chapters ?? 0) > 0));
+}
+
+function getRecentDays(activity, count = 14) {
+  return Array.from({ length: count }, (_, index) => {
+    const date = new Date();
+    date.setDate(date.getDate() - (count - index - 1));
+    const key = getDateKey(date);
+    return {
+      key,
+      label: date.toLocaleDateString(undefined, { weekday: 'short' }).slice(0, 1),
+      number: date.getDate(),
+      active: hasStudyActivity(activity[key]),
+      isToday: key === getDateKey(),
+    };
+  });
 }
 
 function getChapterKey(languageId, chapterNumber) {
@@ -109,6 +176,8 @@ function App() {
   const [activeView, setActiveView] = useState('reader');
   const [searchTerm, setSearchTerm] = useState('');
   const [showBookmarks, setShowBookmarks] = useState(false);
+  const [showAccessibility, setShowAccessibility] = useState(false);
+  const [reminderMessage, setReminderMessage] = useState('');
   const [question, setQuestion] = useState('');
   const [messages, setMessages] = useState(() => [
     {
@@ -133,13 +202,49 @@ function App() {
   const progressPercent = selectedLanguage.chapters?.length
     ? Math.round((completedCount / selectedLanguage.chapters.length) * 100)
     : 0;
+  const todayActivity = studyData.daily.activity[getDateKey()] ?? {};
+  const todayMinutes = todayActivity.minutes ?? 0;
+  const dailyPercent = Math.min(100, Math.round((todayMinutes / studyData.daily.goalMinutes) * 100));
+  const studyStreak = getStudyStreak(studyData.daily.activity);
 
   useEffect(() => {
     localStorage.setItem(STUDY_STORAGE_KEY, JSON.stringify(studyData));
   }, [studyData]);
 
+  useEffect(() => {
+    const { fontScale, reducedMotion, theme } = studyData.settings;
+    document.documentElement.style.fontSize = `${fontScale * 100}%`;
+    document.documentElement.dataset.theme = theme;
+    document.documentElement.classList.toggle('reduce-motion', reducedMotion);
+  }, [studyData.settings]);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      if (document.visibilityState !== 'visible') return;
+      const key = getDateKey();
+      setStudyData((current) => ({
+        ...current,
+        daily: {
+          ...current.daily,
+          activity: {
+            ...current.daily.activity,
+            [key]: {
+              ...current.daily.activity[key],
+              minutes: (current.daily.activity[key]?.minutes ?? 0) + 1,
+            },
+          },
+        },
+      }));
+    }, 60000);
+    return () => window.clearInterval(timer);
+  }, []);
+
   const topicMatches = useMemo(
     () => flattenNotes(selectedLanguage.chapters ?? []),
+    [selectedLanguage],
+  );
+  const playgroundExamples = useMemo(
+    () => getPlaygroundExamples(selectedLanguage),
     [selectedLanguage],
   );
 
@@ -151,6 +256,85 @@ function App() {
 
   const updateStudyData = (updater) => {
     setStudyData((current) => updater(current));
+  };
+
+  const recordActivity = (field, amount = 1) => {
+    const key = getDateKey();
+    updateStudyData((current) => ({
+      ...current,
+      daily: {
+        ...current.daily,
+        activity: {
+          ...current.daily.activity,
+          [key]: {
+            ...current.daily.activity[key],
+            [field]: (current.daily.activity[key]?.[field] ?? 0) + amount,
+          },
+        },
+      },
+    }));
+  };
+
+  const updateReminder = async (nextReminder) => {
+    setReminderMessage('Saving reminder...');
+    try {
+      if (Capacitor.isNativePlatform()) {
+        await LocalNotifications.cancel({ notifications: [{ id: REMINDER_NOTIFICATION_ID }] });
+        if (nextReminder.enabled) {
+          let permission = await LocalNotifications.checkPermissions();
+          if (permission.display !== 'granted') {
+            permission = await LocalNotifications.requestPermissions();
+          }
+          if (permission.display !== 'granted') {
+            setReminderMessage('Notification permission was not granted.');
+            nextReminder = { ...nextReminder, enabled: false };
+          } else {
+            const [hour, minute] = nextReminder.time.split(':').map(Number);
+            await LocalNotifications.createChannel({
+              id: 'study-reminders',
+              name: 'Study reminders',
+              description: 'Daily Code Notes Lab study reminder',
+              importance: 3,
+            });
+            await LocalNotifications.schedule({
+              notifications: [{
+                id: REMINDER_NOTIFICATION_ID,
+                title: 'Your coding streak is waiting',
+                body: 'Open Code Notes Lab for one focused lesson today.',
+                channelId: 'study-reminders',
+                schedule: { on: { hour, minute }, repeats: true, allowWhileIdle: true },
+              }],
+            });
+            setReminderMessage(`Daily Android reminder set for ${nextReminder.time}.`);
+          }
+        } else {
+          setReminderMessage('Daily reminder turned off.');
+        }
+      } else {
+        setReminderMessage(nextReminder.enabled
+          ? 'Reminder saved. It becomes a device notification in the Android app.'
+          : 'Daily reminder turned off.');
+      }
+    } catch (error) {
+      setReminderMessage(`Could not schedule the reminder: ${error.message}`);
+      nextReminder = { ...nextReminder, enabled: false };
+    }
+
+    updateStudyData((current) => ({
+      ...current,
+      daily: { ...current.daily, reminder: nextReminder },
+    }));
+  };
+
+  const continueStudy = () => {
+    const language = readyLanguages.find((item) => item.id === studyData.lastLocation.languageId) ?? cNotes;
+    const chapter = language.chapters.find(
+      (item) => item.number === studyData.lastLocation.chapterNumber,
+    ) ?? language.chapters[0];
+    setActiveLanguage(language.id);
+    setActiveChapter(chapter.number);
+    setActiveView('reader');
+    window.scrollTo({ top: 0, behavior: studyData.settings.reducedMotion ? 'auto' : 'smooth' });
   };
 
   const rememberLocation = (languageId, chapterNumber) => {
@@ -231,6 +415,7 @@ function App() {
   };
 
   const toggleChapterFlag = (collection) => {
+    const willComplete = collection === 'completed' && !studyData.completed[chapterKey];
     updateStudyData((current) => ({
       ...current,
       [collection]: {
@@ -238,6 +423,7 @@ function App() {
         [chapterKey]: !current[collection][chapterKey],
       },
     }));
+    if (willComplete) recordActivity('chapters');
   };
 
   const moveChapter = (offset) => {
@@ -247,16 +433,18 @@ function App() {
     const nextChapter = selectedLanguage.chapters[nextIndex];
     if (nextChapter) {
       openChapter(nextChapter);
-      window.scrollTo({ top: 0, behavior: 'smooth' });
+      window.scrollTo({ top: 0, behavior: studyData.settings.reducedMotion ? 'auto' : 'smooth' });
     }
   };
 
   return (
-    <main className="bot-page">
+    <>
+    <a className="skip-link" href="#main-study-content">Skip to study content</a>
+    <main className="bot-page" id="main-study-content">
       <aside className="bot-sidebar">
         <div className="brand-row">
           <div className="brand-mark" aria-hidden="true">
-            <Bot size={24} />
+            <img alt="" src="/app-icon.png" />
           </div>
           <div>
             <p className="eyebrow">Study Arena</p>
@@ -267,9 +455,9 @@ function App() {
         <div className="streak-card">
           <Flame size={20} />
           <div>
-            <span>{isReady ? `${progressPercent}% complete` : 'Focus Path'}</span>
-            <strong>{isReady ? `${completedCount} of ${selectedLanguage.chapters.length} chapters` : 'More tracks coming'}</strong>
-            {isReady && <i><b style={{ width: `${progressPercent}%` }} /></i>}
+            <span>{studyStreak} day streak</span>
+            <strong>{todayMinutes} of {studyData.daily.goalMinutes} minutes today</strong>
+            <i><b style={{ width: `${dailyPercent}%` }} /></i>
           </div>
         </div>
 
@@ -333,6 +521,7 @@ function App() {
               bookmarks={studyData.bookmarks}
               onChangeView={setActiveView}
               onCloseBookmarks={() => setShowBookmarks(false)}
+              onOpenAccessibility={() => setShowAccessibility(true)}
               onOpenResult={openSearchResult}
               onToggleBookmarks={() => setShowBookmarks((current) => !current)}
               searchResults={searchResults}
@@ -340,6 +529,24 @@ function App() {
               setSearchTerm={setSearchTerm}
               showBookmarks={showBookmarks}
             />
+
+            {activeView === 'today' && (
+              <TodayDashboard
+                activity={studyData.daily.activity}
+                dailyGoal={studyData.daily.goalMinutes}
+                lastLocation={studyData.lastLocation}
+                onChangeGoal={(goalMinutes) => updateStudyData((current) => ({
+                  ...current,
+                  daily: { ...current.daily, goalMinutes },
+                }))}
+                onChangeReminder={updateReminder}
+                onContinue={continueStudy}
+                reminder={studyData.daily.reminder}
+                reminderMessage={reminderMessage}
+                streak={studyStreak}
+                todayActivity={todayActivity}
+              />
+            )}
 
             {activeView === 'reader' && <div className="bot-grid">
             <section className="chat-panel" aria-label="Notes bot chat">
@@ -427,16 +634,19 @@ function App() {
                   setActiveChapter(chapter.number);
                   rememberLocation(selectedLanguage.id, chapter.number);
                 }}
-                onSaveScore={(score) => updateStudyData((current) => ({
-                  ...current,
-                  quizScores: {
-                    ...current.quizScores,
-                    [chapterKey]: {
-                      attempts: (current.quizScores[chapterKey]?.attempts ?? 0) + 1,
-                      best: Math.max(current.quizScores[chapterKey]?.best ?? 0, score),
+                onSaveScore={(score) => {
+                  updateStudyData((current) => ({
+                    ...current,
+                    quizScores: {
+                      ...current.quizScores,
+                      [chapterKey]: {
+                        attempts: (current.quizScores[chapterKey]?.attempts ?? 0) + 1,
+                        best: Math.max(current.quizScores[chapterKey]?.best ?? 0, score),
+                      },
                     },
-                  },
-                }))}
+                  }));
+                  recordActivity('questions', 5);
+                }}
                 savedScore={studyData.quizScores[chapterKey]}
               />
             )}
@@ -445,17 +655,30 @@ function App() {
               <CodePlayground
                 chapter={selectedChapter}
                 draft={studyData.playground[selectedLanguage.id]}
+                examples={playgroundExamples}
                 language={selectedLanguage}
                 onChangeDraft={(draft) => updateStudyData((current) => ({
                   ...current,
                   playground: { ...current.playground, [selectedLanguage.id]: draft },
                 }))}
+                onRun={() => recordActivity('runs')}
               />
             )}
           </>
         )}
       </section>
     </main>
+    {showAccessibility && (
+      <AccessibilityPanel
+        onChange={(changes) => updateStudyData((current) => ({
+          ...current,
+          settings: { ...current.settings, ...changes },
+        }))}
+        onClose={() => setShowAccessibility(false)}
+        settings={studyData.settings}
+      />
+    )}
+    </>
   );
 }
 
@@ -515,6 +738,7 @@ function StudyToolbar({
   bookmarks,
   onChangeView,
   onCloseBookmarks,
+  onOpenAccessibility,
   onOpenResult,
   onToggleBookmarks,
   searchResults,
@@ -529,6 +753,15 @@ function StudyToolbar({
     <div className="study-toolbar">
       <div className="view-switcher" aria-label="Study view">
         <button
+          aria-pressed={activeView === 'today'}
+          className={activeView === 'today' ? 'is-active' : ''}
+          onClick={() => onChangeView('today')}
+          type="button"
+        >
+          <CalendarDays size={17} /> Today
+        </button>
+        <button
+          aria-pressed={activeView === 'reader'}
           className={activeView === 'reader' ? 'is-active' : ''}
           onClick={() => onChangeView('reader')}
           type="button"
@@ -536,6 +769,7 @@ function StudyToolbar({
           <BookOpen size={17} /> Reader
         </button>
         <button
+          aria-pressed={activeView === 'quiz'}
           className={activeView === 'quiz' ? 'is-active' : ''}
           onClick={() => onChangeView('quiz')}
           type="button"
@@ -543,6 +777,7 @@ function StudyToolbar({
           <Trophy size={17} /> Quiz
         </button>
         <button
+          aria-pressed={activeView === 'playground'}
           className={activeView === 'playground' ? 'is-active' : ''}
           onClick={() => onChangeView('playground')}
           type="button"
@@ -577,6 +812,15 @@ function StudyToolbar({
         >
           <Bookmark size={18} />
         </button>
+        <button
+          aria-label="Open accessibility settings"
+          className="toolbar-accessibility-button"
+          onClick={onOpenAccessibility}
+          title="Accessibility settings"
+          type="button"
+        >
+          <Accessibility size={18} />
+        </button>
 
         {(searchTerm.trim() || showBookmarks) && (
           <div className="search-results">
@@ -600,6 +844,187 @@ function StudyToolbar({
   );
 }
 
+function TodayDashboard({
+  activity,
+  dailyGoal,
+  lastLocation,
+  onChangeGoal,
+  onChangeReminder,
+  onContinue,
+  reminder,
+  reminderMessage,
+  streak,
+  todayActivity,
+}) {
+  const recentDays = getRecentDays(activity);
+  const minutes = todayActivity.minutes ?? 0;
+  const goalPercent = Math.min(100, Math.round((minutes / dailyGoal) * 100));
+
+  return (
+    <section className="today-page">
+      <header className="today-hero">
+        <div>
+          <p className="eyebrow">Daily Study Room</p>
+          <h3>{minutes >= dailyGoal ? 'Goal complete. Strong work.' : 'One focused session at a time.'}</h3>
+          <p>Continue Chapter {lastLocation.chapterNumber}, test one idea, and keep the chain moving.</p>
+          <button className="continue-button" onClick={onContinue} type="button">
+            <Play size={18} fill="currentColor" /> Continue studying
+          </button>
+        </div>
+        <div className="daily-ring" style={{ '--daily-progress': `${goalPercent * 3.6}deg` }}>
+          <span>{goalPercent}%</span>
+          <small>{minutes}/{dailyGoal} min</small>
+        </div>
+      </header>
+
+      <div className="today-stats" aria-label="Today's study activity">
+        <article><Flame size={20} /><span>Current streak</span><strong>{streak} days</strong></article>
+        <article><CheckCircle2 size={20} /><span>Chapters finished</span><strong>{todayActivity.chapters ?? 0}</strong></article>
+        <article><ListChecks size={20} /><span>Questions answered</span><strong>{todayActivity.questions ?? 0}</strong></article>
+        <article><TerminalSquare size={20} /><span>Programs run</span><strong>{todayActivity.runs ?? 0}</strong></article>
+      </div>
+
+      <div className="daily-settings-grid">
+        <section className="calendar-panel">
+          <div className="section-heading">
+            <CalendarDays size={20} />
+            <div><span>14-day rhythm</span><h4>Study calendar</h4></div>
+          </div>
+          <div className="streak-calendar" aria-label="Study activity over the last 14 days">
+            {recentDays.map((day) => (
+              <div className={`${day.active ? 'is-active' : ''} ${day.isToday ? 'is-today' : ''}`} key={day.key}>
+                <small>{day.label}</small>
+                <strong>{day.number}</strong>
+                <span aria-label={day.active ? 'Studied' : 'No study activity'} />
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <section className="daily-control-panel">
+          <div className="daily-control-row">
+            <div><Type size={19} /><span>Daily target</span></div>
+            <div className="goal-stepper">
+              <button aria-label="Decrease daily goal" disabled={dailyGoal <= 10} onClick={() => onChangeGoal(dailyGoal - 5)} type="button"><Minus size={17} /></button>
+              <strong>{dailyGoal} min</strong>
+              <button aria-label="Increase daily goal" disabled={dailyGoal >= 90} onClick={() => onChangeGoal(dailyGoal + 5)} type="button"><Plus size={17} /></button>
+            </div>
+          </div>
+          <div className="daily-control-row reminder-row">
+            <div><AlarmClock size={19} /><span>Study reminder</span></div>
+            <label className="switch-control">
+              <input
+                checked={reminder.enabled}
+                onChange={(event) => onChangeReminder({ ...reminder, enabled: event.target.checked })}
+                type="checkbox"
+              />
+              <span aria-hidden="true" />
+            </label>
+          </div>
+          <label className="reminder-time">
+            <span>Reminder time</span>
+            <input
+              disabled={!reminder.enabled}
+              onChange={(event) => onChangeReminder({ ...reminder, time: event.target.value })}
+              type="time"
+              value={reminder.time}
+            />
+          </label>
+          {reminderMessage && <p className="setting-status" role="status">{reminderMessage}</p>}
+        </section>
+      </div>
+    </section>
+  );
+}
+
+function AccessibilityPanel({ onChange, onClose, settings }) {
+  const closeButtonRef = useRef(null);
+  const dialogRef = useRef(null);
+
+  useEffect(() => {
+    const previousFocus = document.activeElement;
+    closeButtonRef.current?.focus();
+    const handleDialogKeys = (event) => {
+      if (event.key === 'Escape') onClose();
+      if (event.key !== 'Tab') return;
+      const focusable = [...dialogRef.current.querySelectorAll('button, input:not([disabled])')];
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+    window.addEventListener('keydown', handleDialogKeys);
+    return () => {
+      window.removeEventListener('keydown', handleDialogKeys);
+      previousFocus?.focus();
+    };
+  }, []);
+
+  const themes = [
+    { id: 'light', label: 'Light', icon: Sun },
+    { id: 'dark', label: 'Dark', icon: Moon },
+    { id: 'contrast', label: 'Contrast', icon: Contrast },
+  ];
+
+  return (
+    <div className="modal-backdrop" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
+      <section aria-labelledby="accessibility-title" aria-modal="true" className="settings-dialog" ref={dialogRef} role="dialog">
+        <header>
+          <div><Accessibility size={22} /><h3 id="accessibility-title">Accessibility</h3></div>
+          <button aria-label="Close accessibility settings" onClick={onClose} ref={closeButtonRef} type="button"><X size={20} /></button>
+        </header>
+
+        <div className="settings-group">
+          <div className="settings-label"><Type size={19} /><span>Text size</span></div>
+          <div className="segmented-setting" aria-label="Text size">
+            {[0.9, 1, 1.15, 1.3].map((scale) => (
+              <button
+                aria-pressed={settings.fontScale === scale}
+                className={settings.fontScale === scale ? 'is-active' : ''}
+                key={scale}
+                onClick={() => onChange({ fontScale: scale })}
+                type="button"
+              >
+                {Math.round(scale * 100)}%
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="settings-group">
+          <div className="settings-label"><Contrast size={19} /><span>Appearance</span></div>
+          <div className="theme-setting" aria-label="Color theme">
+            {themes.map(({ id, label, icon: Icon }) => (
+              <button
+                aria-pressed={settings.theme === id}
+                className={settings.theme === id ? 'is-active' : ''}
+                key={id}
+                onClick={() => onChange({ theme: id })}
+                type="button"
+              >
+                <Icon size={18} /> {label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <label className="motion-setting">
+          <div><Settings2 size={19} /><span>Reduce motion</span></div>
+          <span className="switch-control">
+            <input checked={settings.reducedMotion} onChange={(event) => onChange({ reducedMotion: event.target.checked })} type="checkbox" />
+            <span aria-hidden="true" />
+          </span>
+        </label>
+      </section>
+    </div>
+  );
+}
+
 function ChapterPicker({ activeChapter, bookmarks, chapters, completed, languageId, onOpenChapter }) {
   return (
     <nav
@@ -609,6 +1034,7 @@ function ChapterPicker({ activeChapter, bookmarks, chapters, completed, language
     >
       {chapters.map((chapter) => (
         <button
+          aria-current={activeChapter === chapter.number ? 'page' : undefined}
           className={`chapter-card ${activeChapter === chapter.number ? 'is-active' : ''}`}
           key={chapter.number}
           onClick={() => onOpenChapter(chapter)}
@@ -1170,15 +1596,19 @@ function QuizMode({ chapter, language, onOpenChapter, onSaveScore, savedScore })
   );
 }
 
-function CodePlayground({ chapter, draft, language, onChangeDraft }) {
-  const fallbackDraft = useMemo(() => ({
-    code: getPlaygroundTemplate(language.id),
-    stdin: '',
-  }), [language.id]);
-  const currentDraft = draft ?? fallbackDraft;
+function CodePlayground({ chapter, draft, examples, language, onChangeDraft, onRun }) {
+  const workspace = normalizePlaygroundWorkspace(draft, language.id);
+  const activeProgram = workspace.programs.find((program) => program.id === workspace.activeId)
+    ?? workspace.programs[0];
   const [output, setOutput] = useState('Ready.');
   const [isRunning, setIsRunning] = useState(false);
   const [isOnline, setIsOnline] = useState(() => navigator.onLine);
+  const [selectedExampleId, setSelectedExampleId] = useState(() => examples[0]?.id ?? '');
+  const [testResults, setTestResults] = useState([]);
+  const compilerHelp = useMemo(
+    () => explainCompilerOutput(output, language.id),
+    [language.id, output],
+  );
 
   useEffect(() => {
     const updateConnection = () => setIsOnline(navigator.onLine);
@@ -1192,47 +1622,125 @@ function CodePlayground({ chapter, draft, language, onChangeDraft }) {
 
   useEffect(() => {
     setOutput('Ready.');
-  }, [language.id]);
+    setTestResults([]);
+    setSelectedExampleId(examples[0]?.id ?? '');
+  }, [examples, language.id]);
 
-  const updateDraft = (changes) => onChangeDraft({ ...currentDraft, ...changes });
+  const saveWorkspace = (nextWorkspace) => onChangeDraft(nextWorkspace);
+  const updateProgram = (changes) => saveWorkspace({
+    ...workspace,
+    programs: workspace.programs.map((program) => (
+      program.id === activeProgram.id ? { ...program, ...changes } : program
+    )),
+  });
+
+  const createProgram = () => {
+    const id = crypto.randomUUID();
+    saveWorkspace({
+      activeId: id,
+      programs: [
+        ...workspace.programs,
+        {
+          id,
+          name: `Program ${workspace.programs.length + 1}`,
+          code: getPlaygroundTemplate(language.id),
+          stdin: '',
+          tests: [],
+        },
+      ],
+    });
+    setOutput('New program ready.');
+    setTestResults([]);
+  };
+
+  const deleteProgram = () => {
+    if (workspace.programs.length === 1) return;
+    const programs = workspace.programs.filter((program) => program.id !== activeProgram.id);
+    saveWorkspace({ programs, activeId: programs[0].id });
+    setOutput('Program deleted.');
+    setTestResults([]);
+  };
+
+  const loadSelectedExample = () => {
+    const example = examples.find((item) => item.id === selectedExampleId);
+    if (!example) return;
+    updateProgram({ code: example.code, name: example.shortName });
+    setOutput(`Loaded ${example.label}.`);
+    setTestResults([]);
+  };
 
   const runCode = async () => {
     if (!isOnline) {
-      setOutput('Offline: your draft is saved. Connect to the internet to compile and run it.');
+      setOutput('Offline: your program is saved. Connect to the internet to compile and run it.');
       return;
     }
 
     setIsRunning(true);
     setOutput('Compiling...');
-    const controller = new AbortController();
-    const timeout = window.setTimeout(() => controller.abort(), 20000);
-
+    setTestResults([]);
     try {
-      const response = await fetch('https://wandbox.org/api/compile.json', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          code: currentDraft.code,
-          compiler: language.id === 'java' ? 'openjdk-jdk-21+35' : 'gcc-13.2.0-c',
-          stdin: currentDraft.stdin,
-        }),
-        signal: controller.signal,
-      });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.message || `Compiler returned ${response.status}`);
-
-      const sections = [
-        data.compiler_message && `Compiler:\n${data.compiler_message.trim()}`,
-        data.program_output && `Output:\n${data.program_output.trimEnd()}`,
-        data.program_error && `Runtime error:\n${data.program_error.trim()}`,
-      ].filter(Boolean);
-      setOutput(sections.join('\n\n') || `Program finished with status ${data.status}.`);
+      const result = await compileProgram(activeProgram.code, activeProgram.stdin, language.id);
+      setOutput(result.formatted);
+      onRun();
     } catch (error) {
       setOutput(error.name === 'AbortError'
         ? 'The compiler took too long to respond. Try again.'
-        : `Could not run the code. Your draft is still saved.\n${error.message}`);
+        : `Could not run the code. Your program is still saved.\n${error.message}`);
     } finally {
-      window.clearTimeout(timeout);
+      setIsRunning(false);
+    }
+  };
+
+  const addTest = () => updateProgram({
+    tests: [
+      ...(activeProgram.tests ?? []),
+      { id: crypto.randomUUID(), name: `Test ${(activeProgram.tests?.length ?? 0) + 1}`, input: '', expected: '' },
+    ],
+  });
+
+  const updateTest = (id, changes) => updateProgram({
+    tests: (activeProgram.tests ?? []).map((test) => (test.id === id ? { ...test, ...changes } : test)),
+  });
+
+  const deleteTest = (id) => {
+    updateProgram({ tests: (activeProgram.tests ?? []).filter((test) => test.id !== id) });
+    setTestResults((current) => current.filter((test) => test.id !== id));
+  };
+
+  const runTests = async () => {
+    const tests = activeProgram.tests ?? [];
+    if (!tests.length || !isOnline) {
+      setOutput(isOnline ? 'Add at least one test case first.' : 'Connect to the internet to run tests.');
+      return;
+    }
+
+    setIsRunning(true);
+    setOutput(`Running ${tests.length} test ${tests.length === 1 ? 'case' : 'cases'}...`);
+    const results = [];
+    let errorOutput = '';
+    try {
+      for (const test of tests) {
+        const result = await compileProgram(activeProgram.code, test.input, language.id);
+        const actual = result.programOutput.trimEnd();
+        results.push({
+          id: test.id,
+          actual,
+          passed: !result.hasError && actual === test.expected.trimEnd(),
+        });
+        setTestResults([...results]);
+        if (result.hasError && !errorOutput) errorOutput = result.formatted;
+      }
+      if (errorOutput) {
+        setOutput(errorOutput);
+      } else if (!results.some((item) => !item.passed)) {
+        setOutput(`All ${results.length} tests passed.`);
+      } else {
+        setOutput(`${results.filter((item) => item.passed).length} of ${results.length} tests passed.`);
+      }
+      onRun();
+    } catch (error) {
+      setOutput(error.name === 'AbortError' ? 'A test timed out.' : `Tests stopped: ${error.message}`);
+    } finally {
       setIsRunning(false);
     }
   };
@@ -1245,17 +1753,43 @@ function CodePlayground({ chapter, draft, language, onChangeDraft }) {
           <h3>{language.name} Playground</h3>
         </div>
         <span className={`connection-status ${isOnline ? 'is-online' : ''}`}>
-          <i /> {isOnline ? 'Online compiler' : 'Offline draft'}
+          <i /> {isOnline ? 'Online compiler' : 'Offline programs'}
         </span>
       </header>
 
+      <div className="program-workspace-bar">
+        <label>
+          <span>Saved program</span>
+          <select
+            onChange={(event) => saveWorkspace({ ...workspace, activeId: event.target.value })}
+            value={activeProgram.id}
+          >
+            {workspace.programs.map((program) => <option key={program.id} value={program.id}>{program.name}</option>)}
+          </select>
+        </label>
+        <label className="program-name-field">
+          <span>Program name</span>
+          <input onChange={(event) => updateProgram({ name: event.target.value })} value={activeProgram.name} />
+        </label>
+        <button aria-label="Create a new program" onClick={createProgram} title="New program" type="button"><Plus size={18} /></button>
+        <button aria-label="Delete current program" disabled={workspace.programs.length === 1} onClick={deleteProgram} title="Delete program" type="button"><Trash2 size={18} /></button>
+      </div>
+
       <div className="playground-toolbar">
-        <strong>{language.id === 'java' ? 'Main.java' : 'main.c'}</strong>
+        <div className="example-loader">
+          <label>
+            <span className="sr-only">Choose an example</span>
+            <select onChange={(event) => setSelectedExampleId(event.target.value)} value={selectedExampleId}>
+              {examples.map((example) => <option key={example.id} value={example.id}>{example.label}</option>)}
+            </select>
+          </label>
+          <button onClick={loadSelectedExample} type="button"><BookOpen size={17} /> Load example</button>
+        </div>
         <div>
-          <button onClick={() => updateDraft({ code: chapter.example })} type="button">
-            <BookOpen size={17} /> Load chapter example
+          <button onClick={() => updateProgram({ code: chapter.example, name: `Chapter ${chapter.number} example` })} type="button">
+            <BookOpen size={17} /> Current chapter
           </button>
-          <button onClick={() => updateDraft({ code: fallbackDraft.code, stdin: '' })} type="button">
+          <button onClick={() => updateProgram({ code: getPlaygroundTemplate(language.id), stdin: '', tests: [] })} type="button">
             <RotateCcw size={17} /> Reset
           </button>
           <button className="run-button" disabled={isRunning} onClick={runCode} type="button">
@@ -1266,12 +1800,12 @@ function CodePlayground({ chapter, draft, language, onChangeDraft }) {
 
       <div className="playground-grid">
         <label className="editor-panel">
-          <span>Code</span>
+          <span>Code · autosaved</span>
           <textarea
             aria-label={`${language.name} code editor`}
-            onChange={(event) => updateDraft({ code: event.target.value })}
+            onChange={(event) => updateProgram({ code: event.target.value })}
             spellCheck="false"
-            value={currentDraft.code}
+            value={activeProgram.code}
           />
         </label>
         <div className="runner-side">
@@ -1279,20 +1813,134 @@ function CodePlayground({ chapter, draft, language, onChangeDraft }) {
             <span>Input</span>
             <textarea
               aria-label="Program standard input"
-              onChange={(event) => updateDraft({ stdin: event.target.value })}
+              onChange={(event) => updateProgram({ stdin: event.target.value })}
               placeholder="Input supplied to scanf or Scanner..."
               spellCheck="false"
-              value={currentDraft.stdin}
+              value={activeProgram.stdin}
             />
           </label>
-          <div className="output-panel">
-            <span>Console</span>
-            <pre aria-live="polite">{output}</pre>
+          <div className="output-stack">
+            <div className="output-panel">
+              <span>Console</span>
+              <pre aria-live="polite">{output}</pre>
+            </div>
+            {compilerHelp.length > 0 && (
+              <aside className="compiler-help" aria-live="polite">
+                <strong><Lightbulb size={17} /> What the compiler is telling you</strong>
+                {compilerHelp.map((tip) => <p key={tip}>{tip}</p>)}
+              </aside>
+            )}
           </div>
         </div>
       </div>
+
+      <section className="test-lab">
+        <header>
+          <div><ListChecks size={20} /><span>Custom test cases</span></div>
+          <div>
+            <button onClick={addTest} type="button"><Plus size={17} /> Add test</button>
+            <button className="run-tests-button" disabled={isRunning || !(activeProgram.tests?.length)} onClick={runTests} type="button"><Play size={17} /> Run tests</button>
+          </div>
+        </header>
+        {(activeProgram.tests?.length ?? 0) === 0 ? (
+          <p className="empty-tests">No tests yet.</p>
+        ) : (
+          <div className="test-list">
+            {activeProgram.tests.map((test) => {
+              const result = testResults.find((item) => item.id === test.id);
+              return (
+                <article className={result ? (result.passed ? 'is-passed' : 'is-failed') : ''} key={test.id}>
+                  <input aria-label="Test name" onChange={(event) => updateTest(test.id, { name: event.target.value })} value={test.name} />
+                  <label><span>Input</span><textarea onChange={(event) => updateTest(test.id, { input: event.target.value })} value={test.input} /></label>
+                  <label><span>Expected output</span><textarea onChange={(event) => updateTest(test.id, { expected: event.target.value })} value={test.expected} /></label>
+                  <div className="test-result">
+                    {result ? <strong>{result.passed ? 'Passed' : `Actual: ${result.actual || '(no output)'}`}</strong> : <span>Not run</span>}
+                    <button aria-label={`Delete ${test.name}`} onClick={() => deleteTest(test.id)} title="Delete test" type="button"><Trash2 size={17} /></button>
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+        )}
+      </section>
     </section>
   );
+}
+
+function normalizePlaygroundWorkspace(saved, languageId) {
+  if (saved?.programs?.length) {
+    return {
+      ...saved,
+      activeId: saved.programs.some((program) => program.id === saved.activeId)
+        ? saved.activeId
+        : saved.programs[0].id,
+      programs: saved.programs.map((program) => ({ ...program, tests: program.tests ?? [] })),
+    };
+  }
+
+  const id = `${languageId}-starter`;
+  return {
+    activeId: id,
+    programs: [{
+      id,
+      name: 'My first program',
+      code: saved?.code ?? getPlaygroundTemplate(languageId),
+      stdin: saved?.stdin ?? '',
+      tests: [],
+    }],
+  };
+}
+
+async function compileProgram(code, stdin, languageId) {
+  const controller = new AbortController();
+  const timeout = window.setTimeout(() => controller.abort(), 20000);
+  try {
+    const response = await fetch('https://wandbox.org/api/compile.json', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        code,
+        compiler: languageId === 'java' ? 'openjdk-jdk-21+35' : 'gcc-13.2.0-c',
+        stdin,
+      }),
+      signal: controller.signal,
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.message || `Compiler returned ${response.status}`);
+    const sections = [
+      data.compiler_message && `Compiler:\n${data.compiler_message.trim()}`,
+      data.program_output && `Output:\n${data.program_output.trimEnd()}`,
+      data.program_error && `Runtime error:\n${data.program_error.trim()}`,
+    ].filter(Boolean);
+    return {
+      formatted: sections.join('\n\n') || `Program finished with status ${data.status}.`,
+      hasError: Boolean(data.compiler_message || data.program_error || Number(data.status) !== 0),
+      programOutput: data.program_output ?? '',
+    };
+  } finally {
+    window.clearTimeout(timeout);
+  }
+}
+
+function explainCompilerOutput(output, languageId) {
+  const lower = output.toLowerCase();
+  if (!lower.includes('error') && !lower.includes('exception') && !lower.includes('undefined')) return [];
+
+  const tips = [];
+  const add = (condition, tip) => {
+    if (condition && !tips.includes(tip)) tips.push(tip);
+  };
+  add(lower.includes("expected ';'") || lower.includes("';' expected"), 'A statement is missing a semicolon. Check the end of the line named just before the error.');
+  add(lower.includes('undeclared') || lower.includes('cannot find symbol'), 'A name is being used before it is declared, or its spelling/capitalisation does not match.');
+  add(lower.includes('incompatible type') || lower.includes('incompatible types'), 'The value and destination have different types. Check the variable, method return type, or cast.');
+  add(lower.includes('expected') && lower.includes('}'), 'A brace is missing or misplaced. Pair each opening brace with one closing brace.');
+  add(lower.includes('nullpointerexception'), 'A reference is null when the program tries to use it. Create the object or check for null first.');
+  add(lower.includes('arrayindexoutofbound'), 'An array index is outside its valid range. The last index is length - 1.');
+  add(lower.includes('segmentation fault'), 'The program touched invalid memory. Check pointer initialisation, array limits, and freed memory.');
+  add(languageId === 'java' && lower.includes('main method not found'), 'Java needs public static void main(String[] args) as the starting method.');
+  add(languageId === 'c' && lower.includes('undefined reference'), 'The declaration was found but the function definition was not linked. Check its name and source files.');
+  if (!tips.length) tips.push('Start at the first reported error. Later messages are often side effects of that first problem.');
+  return tips.slice(0, 3);
 }
 
 function highlightC(code) {
@@ -1907,6 +2555,44 @@ function predictLiteralOutput(code) {
       .replace(/\\"/g, '"')
       .replace(/\\\\/g, '\\'))
     .join('\n');
+}
+
+function getPlaygroundExamples(language) {
+  return language.chapters.flatMap((chapter) => {
+    const programExamples = chapter.programExamples
+      ?? (language.id === 'c' ? programExamplesByChapter[chapter.number] : [])
+      ?? [];
+    const answers = chapter.answers
+      ?? (language.id === 'c' ? codingAnswersByChapter[chapter.number] : [])
+      ?? [];
+    const entries = [
+      {
+        id: `${language.id}-${chapter.number}-chapter`,
+        label: `Chapter ${chapter.number}: ${chapter.title} · main example`,
+        shortName: `Ch ${chapter.number} main example`,
+        code: chapter.example,
+      },
+      ...chapter.topics.map(([topic, , code], index) => ({
+        id: `${language.id}-${chapter.number}-topic-${index}`,
+        label: `Chapter ${chapter.number}: ${topic}`,
+        shortName: topic,
+        code,
+      })),
+      ...programExamples.map((example, index) => ({
+        id: `${language.id}-${chapter.number}-program-${index}`,
+        label: `Chapter ${chapter.number}: ${example.title}`,
+        shortName: example.title,
+        code: example.code,
+      })),
+      ...answers.map((answer, index) => ({
+        id: `${language.id}-${chapter.number}-answer-${index}`,
+        label: `Chapter ${chapter.number}: coding answer ${index + 1}`,
+        shortName: `Ch ${chapter.number} answer ${index + 1}`,
+        code: answer,
+      })),
+    ];
+    return entries.filter((entry) => entry.code?.trim());
+  });
 }
 
 function getPlaygroundTemplate(languageId) {
