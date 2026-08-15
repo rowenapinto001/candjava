@@ -2558,7 +2558,7 @@ function predictLiteralOutput(code) {
 }
 
 function getPlaygroundExamples(language) {
-  return language.chapters.flatMap((chapter) => {
+  return (language.chapters ?? []).flatMap((chapter) => {
     const programExamples = chapter.programExamples
       ?? (language.id === 'c' ? programExamplesByChapter[chapter.number] : [])
       ?? [];
