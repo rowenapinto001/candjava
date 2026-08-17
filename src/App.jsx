@@ -48,12 +48,18 @@ import {
 } from 'lucide-react';
 import { codingAnswersByChapter } from './data/codingAnswers.js';
 import { cNotes, codingQuestionsByChapter, comingSoonLanguages } from './data/cNotes.js';
+import { computerArchitectureNotes } from './data/computerArchitectureNotes.js';
+import { dataCommunicationNotes } from './data/dataCommunicationNotes.js';
+import { dsaNotes } from './data/dsaNotes.js';
 import { javaNotes } from './data/javaNotes.js';
 import { programExamplesByChapter } from './data/programExamples.js';
 
 const languages = [
   cNotes,
   javaNotes,
+  dataCommunicationNotes,
+  computerArchitectureNotes,
+  dsaNotes,
   ...comingSoonLanguages.filter((language) => language.id !== 'java'),
 ];
 
@@ -382,7 +388,7 @@ function App() {
       {
         id: crypto.randomUUID(),
         role: 'bot',
-        text: `Opened Chapter ${chapter.number}: ${chapter.title}. Start with the power points, study the program examples, then try the 5 coding questions at the end.`,
+        text: `Opened Chapter ${chapter.number}: ${chapter.title}. Start with the key points, study the worked examples, then try the five practice questions at the end.`,
         chapter,
       },
     ]);
@@ -471,7 +477,7 @@ function App() {
           <strong>{Object.values(studyData.bookmarks).filter(Boolean).length}</strong>
         </button>
 
-        <div className="language-list" aria-label="Language list">
+        <div className="language-list" aria-label="Study track list">
           {languages.map((language) => (
             <button
               className={`language-button ${activeLanguage === language.id ? 'is-active' : ''}`}
@@ -479,7 +485,7 @@ function App() {
               onClick={() => openLanguage(language)}
               type="button"
             >
-              <span>{language.name}</span>
+              <span>{language.navName ?? language.name}</span>
               <small>{language.status}</small>
             </button>
           ))}
@@ -490,9 +496,11 @@ function App() {
           <div>
             <p>Current source</p>
             {selectedLanguage.source ? (
-              <a href={selectedLanguage.source.url} target="_blank" rel="noreferrer">
-                {selectedLanguage.source.label}
-              </a>
+              selectedLanguage.source.url ? (
+                <a href={selectedLanguage.source.url} target="_blank" rel="noreferrer">
+                  {selectedLanguage.source.label}
+                </a>
+              ) : <span>{selectedLanguage.source.label}</span>
             ) : <span>Source not loaded yet</span>}
           </div>
         </div>
@@ -527,6 +535,7 @@ function App() {
               searchResults={searchResults}
               searchTerm={searchTerm}
               setSearchTerm={setSearchTerm}
+              showPlayground={selectedLanguage.supportsPlayground !== false}
               showBookmarks={showBookmarks}
             />
 
@@ -743,6 +752,7 @@ function StudyToolbar({
   searchResults,
   searchTerm,
   setSearchTerm,
+  showPlayground,
   showBookmarks,
 }) {
   const bookmarkResults = getBookmarkedResults(bookmarks);
@@ -775,26 +785,28 @@ function StudyToolbar({
         >
           <Trophy size={17} /> Quiz
         </button>
-        <button
-          aria-pressed={activeView === 'playground'}
-          className={activeView === 'playground' ? 'is-active' : ''}
-          onClick={() => onChangeView('playground')}
-          type="button"
-        >
-          <TerminalSquare size={17} /> Playground
-        </button>
+        {showPlayground && (
+          <button
+            aria-pressed={activeView === 'playground'}
+            className={activeView === 'playground' ? 'is-active' : ''}
+            onClick={() => onChangeView('playground')}
+            type="button"
+          >
+            <TerminalSquare size={17} /> Playground
+          </button>
+        )}
       </div>
 
       <div className="global-search">
         <label>
           <Search size={18} />
           <input
-            aria-label="Search all C and Java notes"
+            aria-label="Search all study notes"
             onChange={(event) => {
               setSearchTerm(event.target.value);
               if (event.target.value) onCloseBookmarks();
             }}
-            placeholder="Search C and Java notes..."
+            placeholder="Search every subject..."
             value={searchTerm}
           />
           {searchTerm && (
@@ -1028,7 +1040,7 @@ function ChapterPicker({ activeChapter, bookmarks, chapters, completed, language
   return (
     <nav
       className="chapter-strip"
-      aria-label="Language chapters"
+      aria-label="Subject chapters"
       onWheel={handleHorizontalWheel}
     >
       {chapters.map((chapter) => (
@@ -1284,7 +1296,7 @@ function ProgramExamples({ chapter, language }) {
     <div className="note-card program-examples">
       <div className="section-heading">
         <TerminalSquare size={20} />
-        <h4>Program Examples</h4>
+        <h4>{language.supportsPlayground === false ? 'Worked Examples' : 'Program Examples'}</h4>
       </div>
       <div className="program-example-list">
         {examples.map((example) => (
@@ -1343,7 +1355,7 @@ function CodingQuestions({ chapter, difficulty, language, onChangeDifficulty }) 
     <div className="note-card coding-questions">
       <div className="section-heading">
         <BookOpen size={20} />
-        <h4>5 Coding Questions</h4>
+        <h4>5 Practice Questions</h4>
       </div>
       <DifficultyFilter value={difficulty} onChange={onChangeDifficulty} />
       <ol>
