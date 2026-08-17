@@ -7,9 +7,42 @@
     <meta name="description" content="Practical computer science notes for C, Java, DSA, data communications, and computer architecture." />
     <link rel="icon" href="/app-icon.png" type="image/png" />
     <title>Code Notes Lab</title>
+    <style>
+      .launch-screen {
+        display: grid;
+        min-height: 100vh;
+        place-content: center;
+        gap: 14px;
+        color: #f8fbf2;
+        text-align: center;
+        background: #102c2a;
+      }
+
+      .launch-screen img {
+        width: 76px;
+        height: 76px;
+        margin: 0 auto;
+        border-radius: 16px;
+      }
+
+      .launch-screen strong {
+        font: 800 1.25rem/1.2 system-ui, sans-serif;
+      }
+
+      .launch-screen span {
+        color: #f7d35c;
+        font: 700 0.82rem/1.2 system-ui, sans-serif;
+      }
+    </style>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <div class="launch-screen" role="status" aria-label="Loading Code Notes Lab">
+        <img src="/app-icon.png" alt="" />
+        <strong>Code Notes Lab</strong>
+        <span>Opening your study desk...</span>
+      </div>
+    </div>
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>

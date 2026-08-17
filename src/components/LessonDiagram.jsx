@@ -6,12 +6,15 @@ const DIAGRAMS = {
   'signal-types': { title: 'Analog and digital signals', layout: 'wave', note: 'Analog varies continuously; digital uses distinct levels.' },
   'optical-fiber': { title: 'Light through optical fiber', layout: 'flow', labels: ['Electrical\nsignal', 'LED / laser', 'Fiber core', 'Photodetector', 'Electrical\nsignal'], note: 'Total internal reflection keeps light inside the core.' },
   'encoding-path': { title: 'Bits become a transmitted signal', layout: 'flow', labels: ['Input bits', 'Encoder', 'Signal /\nsymbols', 'Channel', 'Decoder'], note: 'The receiver maps measured symbols back to bits.' },
+  'line-coding': { title: 'NRZ-L and Manchester line coding', layout: 'linecode', note: 'Manchester adds a middle-bit transition for timing; NRZ-L uses one level for the full bit.' },
   'crc-path': { title: 'CRC checking route', layout: 'flow', labels: ['Data', 'Divide by\ngenerator', 'Append\nremainder', 'Transmit', 'Divide again'], note: 'A zero receiver remainder means no detected error.' },
   'stop-and-wait': { title: 'Stop-and-wait ARQ', layout: 'cycle', labels: ['Send frame 0', 'Receive frame', 'Return ACK 1', 'Send frame 1'], note: 'A timeout causes the outstanding frame to be sent again.' },
+  'sliding-window': { title: 'Go-Back-N sliding window', layout: 'window', labels: ['0', '1', '2', '3', '4', '5', '6'], focus: 2, note: 'If frame 2 is lost, later unacknowledged frames are sent again from frame 2.' },
   multiplexing: { title: 'Multiplexing', layout: 'lanes', labels: ['Source A', 'Source B', 'Source C'], center: 'MUX', output: 'Shared link', note: 'The demultiplexer separates the combined channels at the destination.' },
   'switching-comparison': { title: 'Circuit and packet switching', layout: 'compare', rows: [['Circuit', 'Reserve path', 'Send stream', 'Release'], ['Packet', 'Split data', 'Route packets', 'Reassemble']], note: 'Circuit traffic owns a path; packets can take shared routes.' },
   'cellular-reuse': { title: 'Cellular frequency reuse', layout: 'cells', labels: ['A', 'B', 'C', 'A', 'B', 'C', 'A'], note: 'Separated cells may reuse the same channel group.' },
   'csma-cd': { title: 'CSMA/CD decision path', layout: 'flow', labels: ['Listen', 'Idle?', 'Transmit', 'Collision?', 'Back off'], note: 'After a collision, wait a random interval and try again.' },
+  'lan-topologies': { title: 'Bus and tree LAN topologies', layout: 'lan', note: 'A tree extends a shared backbone through branching segments.' },
   'ethernet-frame': { title: 'Ethernet frame', layout: 'frame', labels: ['Preamble', 'Dest. MAC', 'Source MAC', 'Type', 'Payload', 'FCS'], widths: [48, 58, 58, 36, 82, 40], note: 'The FCS detects corruption; MAC fields identify local interfaces.' },
   'wifi-architecture': { title: 'Infrastructure Wi-Fi', layout: 'graph', nodes: [['STA 1', 42, 42], ['STA 2', 42, 128], ['Access\npoint', 176, 85], ['Switch', 302, 85]], edges: [[0, 2], [1, 2], [2, 3]], note: 'Stations join a basic service set through an access point.' },
   'subnet-address': { title: 'IPv4 address split', layout: 'frame', labels: ['Network prefix', 'Host part'], widths: [210, 110], note: 'The subnet mask decides where the network prefix ends.' },
@@ -26,6 +29,10 @@ const DIAGRAMS = {
   'mpls-labels': { title: 'MPLS label operations', layout: 'flow', labels: ['Ingress\nPUSH 18', 'LSR\nSWAP 18→7', 'LSR\nSWAP 7→3', 'Egress\nPOP 3'], note: 'Routers forward by short labels along a label-switched path.' },
   'dns-tree': { title: 'DNS hierarchy', layout: 'tree', nodes: [['Root .', 180, 25], ['.com', 95, 82], ['.edu', 265, 82], ['example.com', 62, 145], ['shop.com', 130, 145], ['college.edu', 265, 145]], edges: [[0, 1], [0, 2], [1, 3], [1, 4], [2, 5]], note: 'Resolution follows delegated authority down the name hierarchy.' },
   'adaptive-streaming': { title: 'Adaptive streaming path', layout: 'flow', labels: ['Video', 'Multiple\nbitrates', 'Segments', 'Network', 'Player adapts'], note: 'The player selects each next segment quality from current conditions.' },
+  'multicast-tree': { title: 'Multicast distribution tree', layout: 'tree', nodes: [['Source', 180, 20], ['Router', 180, 63], ['Branch', 95, 108], ['Branch', 265, 108], ['Group A', 45, 155], ['Group B', 142, 155], ['Group C', 265, 155]], edges: [[0, 1], [1, 2], [1, 3], [2, 4], [2, 5], [3, 6]], note: 'One copy uses each common link and is replicated only at branches.' },
+  'qos-framework': { title: 'QoS treatment path', layout: 'flow', labels: ['Measure\nneeds', 'Classify', 'Admit', 'Schedule', 'Monitor SLA'], note: 'Delay, jitter, loss, and throughput requirements drive packet treatment.' },
+  'voip-path': { title: 'Voice over IP path', layout: 'flow', labels: ['Speech', 'Codec', 'RTP packets', 'IP network', 'Jitter buffer'], note: 'The receiver buffers delay variation before decoding and playback.' },
+  'rtp-packet': { title: 'RTP packet', layout: 'frame', labels: ['Sequence', 'Timestamp', 'Source ID', 'Media payload'], widths: [70, 80, 72, 98], note: 'Sequence numbers reveal loss; timestamps preserve media timing.' },
 
   'twos-complement': { title: "Two's-complement negation", layout: 'flow', labels: ['00000101\n(+5)', 'Invert bits', '11111010', 'Add 1', '11111011\n(-5)'], note: 'Invert every bit, then add one.' },
   'register-bus': { title: 'Registers sharing a bus', layout: 'graph', nodes: [['R0', 48, 38], ['R1', 48, 135], ['Bus', 180, 86], ['ALU', 305, 86]], edges: [[0, 2], [1, 2], [2, 3]], note: 'Control signals select which register drives and receives the shared path.' },
@@ -210,7 +217,50 @@ function SpecialDiagram({ markerId, spec }) {
   if (spec.layout === 'buckets') return <BucketsDiagram labels={spec.labels} markerId={markerId} />;
   if (spec.layout === 'grid') return <GridDiagram labels={spec.labels} />;
   if (spec.layout === 'sequence') return <SequenceDiagram actors={spec.actors} markerId={markerId} messages={spec.messages} />;
+  if (spec.layout === 'linecode') return <LineCodeDiagram />;
+  if (spec.layout === 'window') return <WindowDiagram focus={spec.focus} labels={spec.labels} />;
+  if (spec.layout === 'lan') return <LanDiagram />;
   return null;
+}
+
+function LineCodeDiagram() {
+  return (
+    <>
+      {['1', '0', '1', '1', '0'].map((bit, index) => <text className="diagram-index" key={`${bit}-${index}`} x={92 + index * 52} y="22">{bit}</text>)}
+      <text className="diagram-side-label" x="12" y="64">NRZ-L</text>
+      <path className="diagram-wave" d="M64 47 H116 V78 H168 V47 H272 V78 H324" />
+      <text className="diagram-side-label" x="12" y="127">Manchester</text>
+      <path className="diagram-wave" d="M64 108 H90 V140 H116 V108 H142 V140 H168 V108 H194 V140 H220 V108 H246 V140 H272 V108 H298 V140 H324" />
+      {[116, 168, 220, 272].map((x) => <line className="diagram-bit-boundary" key={x} x1={x} x2={x} y1="30" y2="151" />)}
+    </>
+  );
+}
+
+function WindowDiagram({ focus, labels }) {
+  const width = 42;
+  const start = 33;
+  return (
+    <>
+      <path className="diagram-window-bracket" d="M72 45 V30 H240 V45" />
+      <text className="diagram-index" x="156" y="22">sender window</text>
+      {labels.map((label, index) => <g key={label}><rect className={`diagram-node ${index === focus ? 'is-focus' : index < focus ? 'is-accent' : ''}`} height="48" width={width} x={start + index * width} y="58" /><SvgLabel label={label} x={start + index * width + width / 2} y="87" />{index === focus && <text className="diagram-index" x={start + index * width + width / 2} y="126">lost</text>}</g>)}
+      <path className="diagram-window-bracket" d="M114 140 V155 H282 V140" />
+      <text className="diagram-index" x="198" y="170">retransmit from 2</text>
+    </>
+  );
+}
+
+function LanDiagram() {
+  return (
+    <>
+      <text className="diagram-matrix-title" x="82" y="22">BUS</text>
+      <line className="diagram-edge is-heavy" x1="25" x2="139" y1="82" y2="82" />
+      {[42, 82, 122].map((x, index) => <g key={x}><line className="diagram-edge" x1={x} x2={x} y1="82" y2={index % 2 ? 122 : 43} /><circle className="diagram-circle is-accent" cx={x} cy={index % 2 ? 132 : 33} r="11" /></g>)}
+      <text className="diagram-matrix-title" x="266" y="22">TREE</text>
+      <line className="diagram-edge" x1="266" x2="266" y1="39" y2="72" /><line className="diagram-edge" x1="210" x2="322" y1="72" y2="72" /><line className="diagram-edge" x1="210" x2="210" y1="72" y2="126" /><line className="diagram-edge" x1="322" x2="322" y1="72" y2="126" />
+      <circle className="diagram-circle is-accent" cx="266" cy="34" r="11" /><circle className="diagram-circle" cx="210" cy="82" r="11" /><circle className="diagram-circle" cx="322" cy="82" r="11" /><circle className="diagram-circle is-accent" cx="210" cy="137" r="11" /><circle className="diagram-circle is-accent" cx="322" cy="137" r="11" />
+    </>
+  );
 }
 
 function SequenceDiagram({ actors, markerId, messages }) {

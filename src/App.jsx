@@ -11,6 +11,7 @@ import {
   Bookmark,
   BookmarkCheck,
   Bot,
+  Calculator,
   CalendarDays,
   Check,
   CheckCircle2,
@@ -22,6 +23,7 @@ import {
   FileText,
   Filter,
   Flame,
+  GitCompareArrows,
   Library,
   Lightbulb,
   ListChecks,
@@ -33,6 +35,7 @@ import {
   Play,
   Plus,
   RotateCcw,
+  Route,
   Rocket,
   Search,
   Send,
@@ -50,6 +53,15 @@ import { codingAnswersByChapter } from './data/codingAnswers.js';
 import { cNotes, codingQuestionsByChapter, comingSoonLanguages } from './data/cNotes.js';
 import { computerArchitectureNotes } from './data/computerArchitectureNotes.js';
 import { dataCommunicationNotes } from './data/dataCommunicationNotes.js';
+import {
+  chapterComparisons,
+  chapterCoverage,
+  dataCommunicationGlossary,
+  getQuestionHint,
+  getQuestionKind,
+  protocolJourney,
+  workedProblems,
+} from './data/dataCommunicationExtras.js';
 import { dsaNotes } from './data/dsaNotes.js';
 import { javaNotes } from './data/javaNotes.js';
 import { programExamplesByChapter } from './data/programExamples.js';
@@ -1141,6 +1153,16 @@ function ChapterNotebook({
         </div>
       </div>
 
+      {language.id === 'data-communication' && (
+        <CoverageChecklist chapterNumber={chapter.number} />
+      )}
+
+      {language.id === 'data-communication' && chapterComparisons[chapter.number] && (
+        <ComparisonTable comparison={chapterComparisons[chapter.number]} />
+      )}
+
+      {language.id === 'data-communication' && chapter.number === 2 && <ProtocolJourney />}
+
       <div className="note-split">
         <div className="note-card">
           <div className="section-heading">
@@ -1164,6 +1186,10 @@ function ChapterNotebook({
       </div>
 
       {chapter.revisionPlan && <RevisionPlan plan={chapter.revisionPlan} />}
+
+      {language.id === 'data-communication' && workedProblems[chapter.number] && (
+        <WorkedProblems problems={workedProblems[chapter.number]} />
+      )}
 
       {chapter.conditionalExamples && (
         <div className="note-card examples-card">
@@ -1194,10 +1220,10 @@ function ChapterNotebook({
         <div className="code-card">
           <div className="section-heading">
             <TerminalSquare size={20} />
-            <h4>Highlighted Syntax</h4>
+            <h4>{language.supportsPlayground === false ? 'Key Formula / Trace' : 'Highlighted Syntax'}</h4>
           </div>
           <SyntaxBlock code={chapter.example} languageId={language.id} />
-          <SyntaxLegend languageId={language.id} />
+          {language.supportsPlayground !== false && <SyntaxLegend languageId={language.id} />}
         </div>
 
         <div className="note-card practice">
@@ -1219,6 +1245,8 @@ function ChapterNotebook({
         />
       )}
 
+      {language.id === 'data-communication' && <GlossaryPanel />}
+
       <PersonalNotes note={note} onChange={onChangeNote} />
 
       <ChapterNavigation
@@ -1228,6 +1256,126 @@ function ChapterNotebook({
         onMove={onMoveChapter}
       />
     </article>
+  );
+}
+
+function CoverageChecklist({ chapterNumber }) {
+  const topics = chapterCoverage[chapterNumber];
+  if (!topics) return null;
+
+  return (
+    <section className="note-card coverage-checklist">
+      <div className="section-heading">
+        <ListChecks size={20} />
+        <h4>Chapter Coverage</h4>
+      </div>
+      <div className="coverage-tags">
+        {topics.map((topic) => <span key={topic}><Check size={13} />{topic}</span>)}
+      </div>
+    </section>
+  );
+}
+
+function ComparisonTable({ comparison }) {
+  return (
+    <section className="note-card comparison-section">
+      <div className="section-heading">
+        <GitCompareArrows size={20} />
+        <h4>{comparison.title}</h4>
+      </div>
+      <div className="comparison-scroll" role="region" aria-label={`${comparison.title} comparison table`} tabIndex="0">
+        <table>
+          <thead><tr>{comparison.columns.map((column) => <th key={column}>{column}</th>)}</tr></thead>
+          <tbody>
+            {comparison.rows.map((row) => <tr key={row.join('-')}>{row.map((cell, index) => <td key={`${cell}-${index}`}>{cell}</td>)}</tr>)}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  );
+}
+
+function WorkedProblems({ problems }) {
+  return (
+    <section className="note-card worked-problems">
+      <div className="section-heading">
+        <Calculator size={20} />
+        <h4>Worked Problems</h4>
+      </div>
+      <div className="worked-problem-list">
+        {problems.map((problem, problemIndex) => (
+          <article className="worked-problem" key={problem.title}>
+            <header><span>{problem.kind}</span><strong>{problem.title}</strong></header>
+            <p>{problem.question}</p>
+            <div className="problem-given">
+              {problem.given.map((item) => <code key={item}>{item}</code>)}
+            </div>
+            <details className="solution-reveal">
+              <summary>Show solution</summary>
+              <ol>{problem.steps.map((step) => <li key={step}>{step}</li>)}</ol>
+              <strong className="problem-answer">{problem.answer}</strong>
+            </details>
+            <small>Problem {problemIndex + 1}</small>
+          </article>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function ProtocolJourney() {
+  const [activeStep, setActiveStep] = useState(0);
+  const step = protocolJourney[activeStep];
+
+  return (
+    <section className="note-card protocol-journey">
+      <div className="section-heading">
+        <Route size={20} />
+        <h4>Protocol Journey</h4>
+        <span>{activeStep + 1}/{protocolJourney.length}</span>
+      </div>
+      <div className="journey-track" aria-label="Protocol journey steps">
+        {protocolJourney.map((item, index) => (
+          <button className={index === activeStep ? 'is-active' : ''} key={item.layer} onClick={() => setActiveStep(index)} title={item.title} type="button">
+            <span>{index + 1}</span><small>{item.layer}</small>
+          </button>
+        ))}
+      </div>
+      <article className="journey-stage">
+        <div><span>{step.layer}</span><small>{step.unit}</small></div>
+        <h5>{step.title}</h5>
+        <p>{step.detail}</p>
+        <div className="packet-stack" aria-label={`${step.unit} fields`}>
+          {step.headers.map((header, index) => <span className={index === 0 ? 'is-new' : ''} key={`${header}-${index}`}>{header}</span>)}
+        </div>
+      </article>
+      <div className="journey-controls">
+        <button disabled={activeStep === 0} onClick={() => setActiveStep((current) => current - 1)} type="button"><ChevronLeft size={18} /> Previous</button>
+        <button disabled={activeStep === protocolJourney.length - 1} onClick={() => setActiveStep((current) => current + 1)} type="button">Next <ChevronRight size={18} /></button>
+      </div>
+    </section>
+  );
+}
+
+function GlossaryPanel() {
+  const [term, setTerm] = useState('');
+  const normalized = term.trim().toLowerCase();
+  const entries = dataCommunicationGlossary.filter(([name, meaning]) => (
+    !normalized || name.toLowerCase().includes(normalized) || meaning.toLowerCase().includes(normalized)
+  ));
+
+  return (
+    <details className="note-card glossary-panel">
+      <summary><BookOpen size={20} /><strong>Glossary & Acronyms</strong><span>{dataCommunicationGlossary.length} terms</span></summary>
+      <label className="glossary-search">
+        <Search size={18} />
+        <input onChange={(event) => setTerm(event.target.value)} placeholder="Search CRC, routing, jitter..." type="search" value={term} />
+      </label>
+      <dl>
+        {entries.map(([name, meaning]) => <div key={name}><dt>{name}</dt><dd>{meaning}</dd></div>)}
+      </dl>
+      {entries.length === 0 && <p className="empty-glossary">No matching term.</p>}
+    </details>
   );
 }
 
@@ -1351,7 +1499,9 @@ function CodingQuestions({ chapter, difficulty, language, onChangeDifficulty }) 
     .map((question, index) => ({
       answer: answers[index],
       difficulty: getQuestionDifficulty(index),
+      hint: language.id === 'data-communication' ? getQuestionHint(chapter, index) : null,
       index,
+      kind: language.id === 'data-communication' ? getQuestionKind(question) : null,
       question,
     }))
     .filter((item) => difficulty === 'all' || item.difficulty === difficulty);
@@ -1368,9 +1518,16 @@ function CodingQuestions({ chapter, difficulty, language, onChangeDifficulty }) 
           <li className={`difficulty-${item.difficulty}`} key={item.question}>
             <div className="question-meta">
               <span>{item.difficulty}</span>
+              {item.kind && <span className="question-kind">{item.kind}</span>}
               <small>Question {item.index + 1}</small>
             </div>
             <div className="question-text">{item.question}</div>
+            {item.hint && (
+              <details className="hint-reveal">
+                <summary>Hint</summary>
+                <p>{item.hint}</p>
+              </details>
+            )}
             {item.answer && (
               <details className="answer-reveal">
                 <summary>Answer</summary>
@@ -1989,6 +2146,8 @@ function escapeHtml(value) {
 }
 
 function getCodeExplanationPoints(code, idea, languageId = 'c') {
+  if (languageId !== 'c' && languageId !== 'java') return [idea];
+
   const checks = [
     [/System\.out\.(?:print|println|printf)\s*\(/, '`System.out` writes program output. `println` adds a new line, while `printf` gives precise formatting control.'],
     [/\bclass\s+[A-Za-z_]/, 'A `class` groups state and behavior into a reusable type; objects are created from that blueprint.'],

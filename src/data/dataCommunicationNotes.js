@@ -191,22 +191,25 @@ Request/retransmit only 2`, 'How does Selective Repeat respond when frame 2 is l
   createChapter({
     number: 11,
     title: 'Local Area Network Overview',
-    hook: 'A LAN is a shared neighborhood; its rules decide who may speak and how frames reach the right door.',
+    hook: 'A LAN joins nearby devices; its topology and forwarding devices decide how far each frame and broadcast travels.',
     lessons: [
-      lesson('Random access', 'Random-access protocols let stations compete for a shared channel and define how collisions are avoided or recovered.', `ALOHA -> transmit, then recover
-CSMA -> listen before transmit`, 'What improvement does CSMA add over basic ALOHA?', `CSMA senses the channel before transmitting, reducing collisions caused by sending while another station is already active.`),
-      lesson('CSMA/CD', 'Classic shared Ethernet listened while transmitting, stopped after detecting a collision, and retried after a random backoff.', `sense -> transmit -> detect collision
--> jam -> random backoff -> retry`, 'Why is CSMA/CD generally unnecessary on modern full-duplex switched Ethernet?', `Each switch link has separate transmit and receive paths and no shared collision domain, so collisions do not occur.`),
-      lesson('Ethernet frames', 'An Ethernet frame carries destination and source MAC addresses, a type/length field, payload, and FCS.', `Destination | Source | Type | Data | FCS
-   6 B        6 B     2 B   46-1500 B 4 B`, 'Which Ethernet field detects corruption in the frame?', `The Frame Check Sequence (FCS), normally based on CRC, detects transmission errors.`),
-      lesson('Switched Ethernet', 'A switch learns source MAC addresses and forwards known destinations only through the matching port.', `Frame arrives port 2 from MAC A
-Learn: A -> port 2
-Destination B known -> forward only to B port`, 'How does an Ethernet switch build its forwarding table?', `It records the source MAC address of each arriving frame together with the ingress port.`),
-      lesson('Wi-Fi and CSMA/CA', 'Wi-Fi tries to avoid collisions using sensing, random backoff, acknowledgments, and optionally RTS/CTS.', `sense idle -> random backoff -> send
-receiver ACKs successful frame`, 'Why does Wi-Fi use collision avoidance instead of collision detection?', `A wireless transmitter cannot reliably detect a weak incoming collision while its own strong signal is being transmitted, so it tries to avoid collisions beforehand.`),
+      lesson('Bus and tree topologies', 'A bus shares one backbone; a tree extends that shared medium through branching points so more stations can attach.', `Bus: A -- B -- C -- D
+Tree: backbone -> branches -> stations`, 'What structural difference separates a bus LAN from a tree LAN?', `A bus uses one shared linear medium, while a tree adds branching segments rooted in a shared backbone.`),
+      lesson('LAN protocol architecture', 'IEEE 802 divides the data-link work into Logical Link Control above a technology-specific MAC sublayer.', `Network layer
+Logical Link Control (LLC)
+Media Access Control (MAC)
+Physical layer`, 'Which LAN sublayer controls access to the transmission medium?', `The Media Access Control, or MAC, sublayer.`),
+      lesson('Bridges', 'A bridge learns source MAC locations and filters or forwards frames between LAN segments.', `learn source A on segment 1
+destination B on segment 2
+-> forward across bridge`, 'How does a bridge learn where a station is located?', `It records the source MAC address and incoming segment of received frames.`),
+      lesson('Hubs and switches', 'A hub repeats every bit to all ports; a switch learns addresses and forwards a known unicast only to its destination port.', `Hub: one shared collision domain
+Switch: one collision domain per port`, 'Why does a switch normally provide better capacity than a hub?', `A switch permits independent simultaneous port conversations instead of forcing all devices to share one repeated signal.`),
+      lesson('Virtual LANs', 'A VLAN creates a logical broadcast domain across selected switch ports, independent of their physical location.', `ports 1, 3 -> VLAN 10
+ports 2, 4 -> VLAN 20
+between VLANs -> router`, 'What is needed for devices in different VLANs to communicate?', `A router or multilayer switch must route packets between the VLANs.`),
     ],
-    trap: 'A switch limits collision domains, but broadcasts normally still cross all ports in the same VLAN.',
-    practice: 'Draw an Ethernet frame and trace how a switch handles unknown, known, and broadcast destinations.',
+    trap: 'A switch separates collision domains, but all ports in the same VLAN normally remain in one broadcast domain.',
+    practice: 'Draw bus and tree LANs, then trace the same frame through a hub, bridge, switch, and inter-VLAN router.',
   }),
   createChapter({
     number: 9,
@@ -219,59 +222,57 @@ Reserved capacity during the session`, 'Give one advantage and one disadvantage 
 No permanently reserved channel`, 'Why does packet switching usually use link capacity more efficiently than circuit switching?', `Capacity is consumed only while packets are present, so idle users do not retain reserved bandwidth.`),
       lesson('Datagram and virtual circuit', 'Datagrams are routed independently; virtual-circuit packets follow a previously selected logical path.', `Datagram packets may take different routes
 VC packets carry a short circuit identifier`, 'What path difference separates datagram service from virtual-circuit service?', `Each datagram may be routed independently, while all packets of a virtual circuit follow its established logical path.`),
-      lesson('Repeater, switch, and router', 'A repeater regenerates signals, a switch forwards local frames, and a router forwards packets between networks.', `Repeater -> bits
-Switch   -> frames/MAC
-Router   -> packets/IP`, 'Match repeater, switch, and router to their usual protocol data units.', `A repeater handles bits, a switch handles frames using MAC addresses, and a router handles packets using network-layer addresses.`),
-      lesson('Virtual LANs', 'A VLAN creates a logical broadcast domain across switch ports, separating traffic without requiring separate physical switches.', `Ports 1-4 -> VLAN 10
-Ports 5-8 -> VLAN 20
-Inter-VLAN traffic requires routing`, 'What is required for hosts in different VLANs to communicate?', `A router or multilayer switch must route traffic between the VLANs.`),
+      lesson('Softswitch architecture', 'A softswitch separates call-control software from media gateways that carry voice or other bearer traffic.', `signaling -> media gateway controller
+media stream -> media gateway`, 'What separation is central to softswitch architecture?', `Call-control intelligence is separated from the gateways that switch or translate the media stream.`),
+      lesson('Asynchronous Transfer Mode', 'ATM is a connection-oriented packet technology using short fixed 53-byte cells and virtual path/channel identifiers.', `5-byte header | 48-byte payload
+VPI/VCI selects virtual connection`, 'Why do fixed-size ATM cells simplify switching?', `A constant cell size makes buffering and hardware switching timing predictable, although it adds segmentation overhead.`),
     ],
-    trap: 'A VLAN is a logical Layer-2 boundary, not encryption; sensitive traffic still needs proper access control and cryptographic protection.',
-    practice: 'Compare circuit, datagram, and virtual-circuit switching, then place common network devices at their operating layers.',
+    trap: 'Connection-oriented packet switching still shares link capacity; a virtual circuit is not the same as a physically dedicated circuit.',
+    practice: 'Compare circuit, datagram, virtual-circuit, and ATM operation, then sketch a softswitch control/media separation.',
   }),
   createChapter({
     number: 14,
     title: 'The Internet Protocol',
     hook: 'IP finds the host, transport finds the process, and together they turn many links into an end-to-end service.',
     lessons: [
-      lesson('IPv4 and subnet masks', 'An IPv4 address has 32 bits; the prefix identifies the network and the remaining bits identify hosts.', `192.168.10.37/24
-Network: 192.168.10.0
-Host part: 37`, 'Find the network address of 192.168.10.37/24.', `A /24 mask keeps the first 24 bits. The network address is 192.168.10.0.`),
-      lesson('Subnet capacity', 'With h host bits, a conventional IPv4 subnet has 2^h total addresses and usually 2^h - 2 usable host addresses.', `/26 leaves 6 host bits
-2^6 = 64 total
-62 normally usable`, 'How many normally usable host addresses are in an IPv4 /26 subnet?', `A /26 leaves 6 host bits: 2^6 - 2 = 62 normally usable host addresses.`),
+      lesson('Principles of internetworking', 'Routers join unlike networks while IP supplies one best-effort packet format and global addressing scheme.', `host -> local frame [IP packet]
+router -> new local frame [same IP packet]`, 'What allows unlike physical networks to participate in one internetwork?', `Each network carries a common IP packet service while routers replace the link-specific frame at every hop.`),
+      lesson('IPv4 operation and subnetting', 'IPv4 uses a 32-bit address and a variable-length header; a subnet mask divides the address into prefix and host portions.', `192.168.10.37/24
+network: 192.168.10.0
+host part: 37`, 'Find the network address of 192.168.10.37/24.', `A /24 mask keeps the first 24 bits. The network address is 192.168.10.0.`),
       lesson('IPv6', 'IPv6 uses 128-bit addresses, simpler base headers, extension headers, and no broadcast addressing.', `2001:0db8:0000:0000:0000:0000:0000:0001
 Compressed: 2001:db8::1`, 'Compress the IPv6 address 2001:0db8:0000:0000:0000:0000:0000:0001.', `Remove leading zeros and replace the longest zero run once: 2001:db8::1.`),
       lesson('Routing', 'Routers select the most specific matching prefix, then use metrics and policy to choose among eligible routes.', `10.0.0.0/8
 10.20.0.0/16
 Destination 10.20.4.5 -> choose /16`, 'Which route is selected for 10.20.4.5 when /8 and /16 prefixes both match?', `The /16 route is selected because longest-prefix matching chooses the most specific route.`),
-      lesson('DHCP address assignment', 'DHCP lets a host discover configuration such as an IP address, subnet mask, router, and DNS server.', `Discover -> Offer -> Request -> Acknowledge
-Client receives a timed address lease`, 'What four-message exchange is commonly used for initial DHCP allocation?', `DHCP commonly uses Discover, Offer, Request, and Acknowledge, often remembered as DORA.`),
+      lesson('VPNs and IPsec', 'A VPN creates protected logical connectivity over a shared network; IPsec authenticates and can encrypt IP traffic.', `original IP packet
+-> IPsec protection
+-> outer tunnel packet`, 'What protections can IPsec provide to VPN traffic?', `IPsec can provide data-origin authentication, integrity, anti-replay protection, and confidentiality when encryption is used.`),
     ],
     trap: 'An IP address identifies an interface in an internetwork; it does not permanently identify one person or application.',
-    practice: 'Solve three subnet calculations, compress two IPv6 addresses, and trace one DHCP allocation.',
+    practice: 'Trace one packet across unlike links, solve three subnet calculations, compress two IPv6 addresses, and label an IPsec tunnel.',
   }),
   createChapter({
     number: 22,
     title: 'Internetwork Quality of Service',
-    hook: 'A healthy network is not merely connected: it is measurable, protected, and diagnosable one layer at a time.',
+    hook: 'Quality of service turns application needs into measurable treatment, reservations, traffic classes, and service commitments.',
     lessons: [
-      lesson('Delay components', 'Total nodal delay includes processing, queueing, transmission, and propagation delay.', `Packet = 12,000 bits
-Rate = 6 Mbit/s
-Transmission delay = 12,000 / 6,000,000 = 2 ms`, 'Find the transmission delay of a 12,000-bit packet on a 6 Mbit/s link.', `Transmission delay = packet length / rate = 12,000 / 6,000,000 second = 0.002 second = 2 ms.`),
-      lesson('Bandwidth and throughput', 'Bandwidth is theoretical carrying capacity; throughput is the achieved delivery rate after overhead and contention.', `Link capacity: 100 Mbit/s
-Measured delivery: 72 Mbit/s
-Utilization = 72%`, 'Distinguish bandwidth from throughput.', `Bandwidth is nominal link capacity. Throughput is the actual rate successfully achieved by traffic.`),
-      lesson('Quality of service', 'QoS classifies and schedules traffic to manage bandwidth, delay, jitter, and loss for different applications.', `Voice: low delay and jitter
-Backup: high throughput, delay tolerant`, 'Which QoS measurements are especially important for a live voice call?', `Low end-to-end delay, low jitter, and low packet loss are especially important.`),
-      lesson('Traffic classification', 'QoS begins by classifying packets into aggregates that can receive different forwarding treatment.', `voice packets -> low-delay class
-bulk backup -> best-effort class`, 'Why must traffic be classified before differentiated QoS can be applied?', `Routers need a class or marking to decide which queue, drop policy, and scheduling treatment each packet receives.`),
-      lesson('Scheduling and admission', 'Priority and weighted schedulers share output capacity, while admission control rejects flows whose guarantees cannot be met.', `link = 10 Mbit/s
-reserved flows already use 9 Mbit/s
-new 2 Mbit/s guaranteed flow -> reject`, 'Why should the shown 2 Mbit/s guaranteed flow be rejected?', `Only 1 Mbit/s of reservable capacity remains, so accepting a 2 Mbit/s guarantee would violate existing or new commitments.`),
+      lesson('QoS architectural framework', 'A QoS framework describes application requirements using throughput, delay, jitter, and loss, then maps them to network treatment.', `voice -> low delay and jitter
+backup -> high throughput, delay tolerant`, 'Which QoS measurements are especially important for an interactive voice call?', `Low end-to-end delay, low jitter, and low packet loss are especially important.`),
+      lesson('Integrated Services', 'IntServ uses admission control and per-flow state to offer a requested service along the path.', `flow specification
+-> admission at each hop
+-> reserved per-flow resources`, 'Why must IntServ perform admission control?', `It must reject a new reservation when the path lacks resources, protecting guarantees already made to accepted flows.`),
+      lesson('Resource Reservation Protocol', 'RSVP carries reservation messages along a route and refreshes soft state without performing the routing itself.', `PATH: sender -> receiver
+RESV: receiver -> sender
+periodic refresh`, 'Does RSVP calculate the route used by a flow?', `No. Routing selects the path; RSVP signals and refreshes resource reservations along that path.`),
+      lesson('Differentiated Services', 'DiffServ marks packets into behavior aggregates so routers can apply scalable per-class queueing and drop treatment.', `mark DS field at edge
+core router -> class behavior`, 'Why does DiffServ scale better than keeping per-flow state in every core router?', `Core routers handle a limited number of traffic classes rather than maintaining state for every individual flow.`),
+      lesson('SLAs and performance metrics', 'A service-level agreement states measurable commitments such as availability, throughput, delay, jitter, and loss.', `SLA: delay <= 40 ms
+loss <= 0.1%
+availability >= 99.9%`, 'Why must an SLA use measurable quantities?', `Objective metrics let both parties verify whether the promised service was delivered.`),
     ],
-    trap: 'QoS can manage scarcity and priorities, but it cannot manufacture bandwidth that the physical path does not have.',
-    practice: 'Calculate delay and utilization, classify application requirements, and design a simple queue schedule.',
+    trap: 'QoS can allocate and prioritize existing resources, but it cannot manufacture capacity that the physical path does not have.',
+    practice: 'Classify two applications, compare IntServ and DiffServ, trace RSVP signaling, and write a measurable SLA.',
   }),
   createChapter({
     number: 10,
@@ -441,21 +442,24 @@ sender reduces rate`, 'What advantage can ECN have over a congestion drop?', `It
   createChapter({
     number: 21,
     title: 'Internetwork Operation',
-    hook: 'Internetworking lets unlike networks carry one packet service by translating reachability, size, and local delivery at each boundary.',
+    hook: 'Modern internetwork operation includes one-to-many delivery, programmable forwarding, and mobility across changing attachment points.',
     lessons: [
-      lesson('Encapsulation across links', 'An IP packet keeps its network-layer identity while each link replaces the local frame header and trailer.', `Ethernet frame [IP packet]
-router removes frame
-Wi-Fi frame [same routed IP packet]`, 'What happens to a link-layer frame when a router forwards its IP packet?', `The router removes the incoming frame, processes the IP packet, and encapsulates it in a new frame suitable for the outgoing link.`),
-      lesson('Fragmentation and path MTU', 'When a packet exceeds a supported MTU, IPv4 may fragment it; avoiding fragmentation through path-MTU discovery is preferable.', `IP packet 2000 B, link MTU 1500 B
--> fragments or sender uses smaller packet`, 'Why is path-MTU discovery useful?', `It lets a sender choose packets small enough for the path, avoiding fragmentation overhead and fragility.`),
-      lesson('NAT', 'Network address translation rewrites addresses and often ports so private hosts can share public addressing.', `10.0.0.8:51000 <-> 203.0.113.5:62001`, 'Why must a port-translating NAT keep a mapping table?', `Returning packets use the public address and translated port, so the table identifies the correct private address and original port.`),
-      lesson('Tunneling', 'Tunneling encapsulates one network-layer packet inside another to cross an incompatible or intermediate network.', `outer header | inner IP packet
-tunnel endpoint removes outer header`, 'What do tunnel endpoints do?', `The ingress encapsulates the original packet in an outer packet, and the egress removes that outer encapsulation.`),
-      lesson('Software-defined networking', 'SDN separates programmable control decisions from device forwarding, allowing a controller to manage network behavior.', `controller installs flow rules
-switches apply rules to packets`, 'What separation defines software-defined networking?', `The control plane is logically separated from the forwarding data plane and made programmable through controller interfaces.`),
+      lesson('IP multicasting', 'Multicast sends one packet stream to a group address and lets the network replicate packets only where receiver paths branch.', `source -> shared path -> branch
+                        -> receiver A
+                        -> receiver B`, 'Why can multicast use less bandwidth than separate unicasts?', `One packet copy crosses each shared path segment and is replicated only where paths to group members diverge.`),
+      lesson('Multicast delivery trees', 'A multicast routing protocol builds source-based or shared trees while group-management messages track interested receivers.', `receiver joins group
+routers add branch
+traffic follows distribution tree`, 'What is the purpose of a multicast distribution tree?', `It connects the source or shared root to all interested receiver networks without unnecessary duplicate traffic on common links.`),
+      lesson('Software-defined networking', 'SDN separates logically centralized control decisions from simple device forwarding and exposes programmable interfaces.', `controller computes policy
+-> installs forwarding rules
+-> switches apply rules`, 'What separation defines software-defined networking?', `The control plane is logically separated from the forwarding data plane and made programmable through controller interfaces.`),
+      lesson('OpenFlow', 'OpenFlow lets a controller manage match-action flow-table entries in compatible forwarding devices.', `match: IP destination + TCP port
+actions: forward, drop, modify, report`, 'What two broad parts make up an OpenFlow-style rule?', `Match fields identify traffic, and actions specify what the forwarding device should do with matching packets.`),
+      lesson('Mobile IP', 'Mobile IP preserves a stable home address while a home agent tunnels packets toward the device current care-of address.', `correspondent -> home address
+home agent -> tunnel -> care-of address`, 'Why does Mobile IP use a care-of address?', `It identifies the mobile device current attachment point so packets can be tunneled there while the home address remains stable.`),
     ],
-    trap: 'NAT changes addressing behavior but is not a substitute for a firewall or end-to-end encryption.',
-    practice: 'Trace an IP packet across two link types, then explain fragmentation, NAT mapping, tunneling, and SDN forwarding.',
+    trap: 'SDN centralizes the control view logically, but implementations can use multiple controllers for scale and resilience.',
+    practice: 'Draw a multicast tree, write one match-action flow rule, and trace a mobile node from home address to care-of address.',
   }),
   createChapter({
     number: 23,
@@ -500,18 +504,20 @@ HTTPS -> HTTP over authenticated encrypted TLS`, 'What protections does HTTPS ad
     title: 'Internet Multimedia Support',
     hook: 'Multimedia networking succeeds when timing is treated as part of correctness, not merely an afterthought to delivery.',
     lessons: [
-      lesson('Multimedia requirements', 'Interactive audio and video care about delay, jitter, loss, synchronization, and sustained rate more than perfect retransmission.', `voice: strict delay, tolerates some loss
+      lesson('Real-time traffic', 'Interactive audio and video care about delay, jitter, loss, synchronization, and sustained rate more than perfect retransmission.', `voice: strict delay, tolerates some loss
 file: tolerates delay, requires exact bytes`, 'Why can retransmitting every late voice packet be harmful?', `A retransmitted packet may arrive after its playback deadline, adding delay without improving the live conversation.`),
-      lesson('RTP and RTCP', 'RTP carries timestamped media with sequence numbers; RTCP reports quality and participant information.', `RTP: payload + sequence + timestamp
-RTCP: loss, jitter, timing feedback`, 'What distinct jobs do RTP and RTCP perform?', `RTP transports real-time media timing and sequence information; RTCP carries control and reception-quality reports.`),
+      lesson('Voice over IP', 'VoIP samples and encodes speech, groups it into packets, transports it with timing information, and uses a jitter buffer before playback.', `speech -> codec -> packetization
+-> IP network -> jitter buffer -> playback`, 'What tradeoff is introduced by increasing a VoIP jitter buffer?', `A larger buffer tolerates more delay variation but increases end-to-end conversational delay.`),
       lesson('Session control with SIP', 'SIP locates participants and establishes, modifies, or ends multimedia sessions while media commonly travels separately.', `INVITE -> provisional/final response -> ACK
 media flow negotiated by session description`, 'Does SIP normally carry the audio samples themselves?', `No. SIP controls session signaling; media is normally carried by protocols such as RTP.`),
-      lesson('Streaming and adaptive bitrate', 'A client buffers media and can select among encoded bitrates as measured capacity changes.', `throughput falls -> request lower-rate next segment
-buffer protects short variations`, 'Why does adaptive streaming divide media into segments at several bitrates?', `The client can switch quality at segment boundaries to match current network capacity and reduce playback stalls.`),
-      lesson('Multicast and QoS support', 'Multicast avoids duplicate common-path streams, while QoS scheduling and admission can protect delay-sensitive flows.', `one source -> network replication -> many receivers`, 'When is multicast more bandwidth-efficient than separate unicast streams?', `When many receivers need the same content and their paths share links, because one copy crosses each common segment.`),
+      lesson('Real-time Transport Protocol', 'RTP carries media payloads with sequence numbers and timestamps so receivers can detect loss and schedule playback.', `RTP header: sequence + timestamp + source ID
+payload: encoded audio/video`, 'Why does RTP include both sequence numbers and timestamps?', `Sequence numbers reveal loss and reordering, while timestamps identify media sampling time for playback timing.`),
+      lesson('RTCP feedback', 'RTCP exchanges sender, receiver, and participant reports containing statistics such as loss, jitter, and timing.', `receiver report
+-> fraction lost + jitter + timing
+-> sender adapts or diagnoses`, 'Does RTCP normally retransmit a missing RTP packet?', `No. RTCP reports quality and control information; recovery behavior is handled separately when an application supports it.`),
     ],
-    trap: 'A large playback buffer smooths jitter but also adds startup or interaction delay; buffer size is a tradeoff.',
-    practice: 'Design a live-video path using signaling, RTP/RTCP, buffering, adaptive rate, and appropriate QoS.',
+    trap: 'SIP controls a session while RTP carries media; treating them as the same channel confuses signaling with payload delivery.',
+    practice: 'Design a VoIP call from codec and packetization through SIP setup, RTP media, RTCP reports, and jitter-buffer playback.',
   }),
 ];
 
