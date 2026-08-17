@@ -1,9 +1,69 @@
-export const lesson = (title, point, example, question, answer) => ({
+const LESSON_VISUALS = {
+  // Data communications
+  'Five communication components': 'communication-model',
+  'Seven OSI layers': 'osi-layers',
+  'Analog and digital signals': 'signal-types',
+  'Optical fiber': 'optical-fiber',
+  'Digital modulation': 'encoding-path',
+  'Cyclic redundancy check': 'crc-path',
+  'Stop-and-wait ARQ': 'stop-and-wait',
+  'Frequency-division multiplexing': 'multiplexing',
+  'Circuit switching': 'switching-comparison',
+  'Cells and frequency reuse': 'cellular-reuse',
+  'CSMA/CD': 'csma-cd',
+  'Ethernet frame': 'ethernet-frame',
+  'IEEE 802.11 architecture': 'wifi-architecture',
+  'IPv4 and subnet masks': 'subnet-address',
+  'TCP connection and reliability': 'tcp-handshake',
+  'Forward error correction': 'fec-path',
+  OFDM: 'ofdm-subcarriers',
+  'Bluetooth piconets': 'bluetooth-piconet',
+  'Link-state routing': 'routing-map',
+  'TCP congestion window': 'congestion-window',
+  'Encapsulation across links': 'packet-journey',
+  'Delay components': 'delay-components',
+  'Push, swap, and pop': 'mpls-labels',
+  'DNS hierarchy': 'dns-tree',
+  'Streaming and adaptive bitrate': 'adaptive-streaming',
+
+  // Computer architecture and organization
+  "Two's complement": 'twos-complement',
+  'Registers and buses': 'register-bus',
+  'Fetch cycle': 'instruction-cycle',
+  'Stack organization': 'stack-machine',
+  'Instruction fields': 'instruction-format',
+  'Microprogrammed control': 'microprogram-control',
+  'Ripple and carry lookahead': 'binary-adder',
+  'Cache mapping': 'cache-mapping',
+  Paging: 'paging-translation',
+  'Direct memory access': 'dma-transfer',
+  'Pipeline stages and speedup': 'cpu-pipeline',
+  'Flynn classification': 'flynn-classification',
+
+  // Data structures and algorithms
+  'Time and space complexity': 'complexity-growth',
+  'Contiguous storage': 'array-layout',
+  'Node structure': 'linked-list',
+  'LIFO operations': 'stack-operations',
+  'FIFO operations': 'queue-operations',
+  'Base and recursive cases': 'recursion-tree',
+  'Tree vocabulary': 'tree-vocabulary',
+  'BST invariant': 'bst-invariant',
+  'Array representation': 'heap-layout',
+  'Separate chaining': 'hash-chaining',
+  'Graph representations': 'graph-representation',
+  'Merge sort': 'merge-sort',
+  'Binary search': 'binary-search',
+  'Memoization and tabulation': 'dp-table',
+};
+
+export const lesson = (title, point, example, question, answer, visual = null) => ({
   title,
   point,
   example,
   question,
   answer,
+  visual: visual ?? LESSON_VISUALS[title] ?? null,
 });
 
 export const createChapter = ({ number, title, hook, lessons, trap, practice }) => {
@@ -15,7 +75,7 @@ export const createChapter = ({ number, title, hook, lessons, trap, practice }) 
     number,
     title,
     hook,
-    topics: lessons.map((item) => [item.title, item.point, item.example]),
+    topics: lessons.map((item) => [item.title, item.point, item.example, item.visual]),
     useIt: [
       'Read the idea, cover it, and explain it once in your own words.',
       'Work through the example by hand before checking the shown result.',

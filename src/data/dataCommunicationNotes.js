@@ -16,7 +16,7 @@ Phone call: full-duplex`, 'Classify a walkie-talkie and a phone call by data-flo
 Reliability: failures and recovery
 Security: confidentiality, integrity, availability`, 'What three criteria are commonly used to evaluate a network?', `Performance, reliability, and security.`),
       lesson('Physical topologies', 'Bus, star, ring, and mesh describe physical connection patterns; each changes cost and failure behavior.', `Star: every node -> central switch
-Mesh links for n nodes = n(n - 1) / 2`, 'How many links are required for a full mesh of six devices?', `Use n(n - 1) / 2. For n = 6: 6 x 5 / 2 = 15 links.`),
+Mesh links for n nodes = n(n - 1) / 2`, 'How many links are required for a full mesh of six devices?', `Use n(n - 1) / 2. For n = 6: 6 x 5 / 2 = 15 links.`, 'network-topologies'),
       lesson('Protocols and standards', 'A protocol defines syntax, semantics, and timing; standards let independently built systems interoperate.', `Syntax: message format
 Semantics: field meaning
 Timing: when and how fast`, 'Distinguish protocol syntax, semantics, and timing.', `Syntax defines the structure of data, semantics defines what each field means, and timing defines when data is sent and at what rate.`),

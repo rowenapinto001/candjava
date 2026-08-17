@@ -53,6 +53,7 @@ import { dataCommunicationNotes } from './data/dataCommunicationNotes.js';
 import { dsaNotes } from './data/dsaNotes.js';
 import { javaNotes } from './data/javaNotes.js';
 import { programExamplesByChapter } from './data/programExamples.js';
+import { LessonDiagram } from './components/LessonDiagram.jsx';
 
 const languages = [
   cNotes,
@@ -1117,18 +1118,22 @@ function ChapterNotebook({
             <span role="columnheader">Topic</span>
             <span role="columnheader">Important Point + Example</span>
           </div>
-          {chapter.topics.map(([topic, point, example]) => (
+          {chapter.topics.map(([topic, point, example, visual]) => (
             <div className="topic-table-row" key={topic} role="row">
               <strong role="cell">{topic}</strong>
               <div className="topic-detail" role="cell">
                 <p>{point}</p>
                 <div className="topic-example">
-                  <span>Example</span>
-                  <SyntaxBlock
-                    code={example ?? getTopicExample(chapter.number, topic)}
-                    compact
-                    languageId={language.id}
-                  />
+                  <span>{visual ? 'Diagram' : 'Example'}</span>
+                  {visual ? (
+                    <LessonDiagram type={visual} />
+                  ) : (
+                    <SyntaxBlock
+                      code={example ?? getTopicExample(chapter.number, topic)}
+                      compact
+                      languageId={language.id}
+                    />
+                  )}
                 </div>
               </div>
             </div>
@@ -1323,7 +1328,7 @@ function CodeExplanation({ code, idea, languageId }) {
     <div className="code-explanation">
       <div className="explain-title">
         <Lightbulb size={16} />
-        <strong>Code Explanation</strong>
+        <strong>Easy Explanation</strong>
       </div>
       <ul>
         {points.map((point) => (
