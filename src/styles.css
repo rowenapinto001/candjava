@@ -911,6 +911,44 @@ h1 {
   stroke-width: 3;
 }
 
+.coa-explanation-table {
+  display: grid;
+  margin: 2px 0 13px;
+  overflow: hidden;
+  border: 1px solid #d7e1db;
+  border-radius: 6px;
+}
+
+.coa-explanation-table > div {
+  display: grid;
+  grid-template-columns: minmax(110px, 0.24fr) minmax(0, 1fr);
+}
+
+.coa-explanation-table > div + div {
+  border-top: 1px solid #d7e1db;
+}
+
+.coa-explanation-table strong,
+.coa-explanation-table span {
+  padding: 9px 11px;
+  line-height: 1.45;
+}
+
+.coa-explanation-table strong {
+  color: #14312f;
+  font-size: 0.76rem;
+  text-transform: uppercase;
+  background: #edf7f2;
+  border-right: 1px solid #d7e1db;
+}
+
+.coa-explanation-table span {
+  color: #3f4d49;
+  font-size: 0.86rem;
+  font-weight: 650;
+  background: #fffdf7;
+}
+
 .coa-focus-table {
   display: grid;
   gap: 0;
@@ -2742,6 +2780,19 @@ h1 {
     border-right: 0;
   }
 
+  .coa-explanation-table > div {
+    grid-template-columns: 1fr;
+  }
+
+  .coa-explanation-table strong {
+    padding-bottom: 5px;
+    border-right: 0;
+  }
+
+  .coa-explanation-table span {
+    padding-top: 7px;
+  }
+
   .coa-focus-row {
     grid-template-columns: 1fr;
   }
@@ -3413,6 +3464,17 @@ html[data-theme="dark"] .concept-arrow-step > span {
   color: #e7f4ee;
   background: #15332c;
   border-color: #3a5951;
+}
+html[data-theme="dark"] .coa-explanation-table,
+html[data-theme="dark"] .coa-explanation-table > div + div { border-color: #3a5951; }
+html[data-theme="dark"] .coa-explanation-table strong {
+  color: #e7f4ee;
+  background: #15332c;
+  border-color: #3a5951;
+}
+html[data-theme="dark"] .coa-explanation-table span {
+  color: #d8e8e1;
+  background: #0f2822;
 }
 html[data-theme="dark"] .coa-focus-row { border-color: #3a5951; }
 html[data-theme="dark"] .coa-focus-row > strong {

@@ -981,13 +981,25 @@ function ChapterNotebook({
             <span role="columnheader">Topic</span>
             <span role="columnheader">Important Point + Example</span>
           </div>
-          {chapter.topics.map(([topic, point, example, visual]) => (
+          {chapter.topics.map(([topic, point, example, visual, explanation]) => (
             <div className="topic-table-row" key={topic} role="row">
               <strong role="cell">{topic}</strong>
               <div className="topic-detail" role="cell">
                 {language.id === 'computer-architecture'
                   ? <ConceptArrowSummary summary={point} />
                   : <p>{point}</p>}
+                {language.id === 'computer-architecture' && (
+                  <div className="coa-explanation-table" aria-label={`${topic} explanation`}>
+                    <div>
+                      <strong>Easy meaning</strong>
+                      <span>{explanation ?? 'This route connects the named units in the order information is processed.'}</span>
+                    </div>
+                    <div>
+                      <strong>In practice</strong>
+                      <span>{example}</span>
+                    </div>
+                  </div>
+                )}
                 <div className="topic-example">
                   <span>{visual ? 'Diagram' : 'Example'}</span>
                   {visual ? (

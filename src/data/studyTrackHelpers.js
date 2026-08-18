@@ -84,7 +84,7 @@ export const createChapter = ({ number, title, hook, lessons, trap, practice }) 
     number,
     title,
     hook,
-    topics: lessons.map((item) => [item.title, item.point, item.example, item.visual]),
+    topics: lessons.map((item) => [item.title, item.point, item.example, item.visual, item.answer]),
     useIt: [
       'Read the idea, cover it, and explain it once in your own words.',
       'Work through the example by hand before checking the shown result.',
