@@ -1,293 +1,201 @@
 import { createChapter, createRevisionChapter, lesson } from './studyTrackHelpers.js';
 
+const flow = (title, labels, note) => ({ title, layout: 'flow', labels, note });
+const cycle = (title, labels, note) => ({ title, layout: 'cycle', labels, note });
+const compare = (title, rows, note) => ({ title, layout: 'compare', rows, note });
+const frame = (title, labels, widths, note) => ({ title, layout: 'frame', labels, widths, note });
+const graph = (title, nodes, edges, note, directed = true) => ({ title, layout: 'graph', nodes, edges, note, directed });
+const tree = (title, nodes, edges, note) => ({ title, layout: 'tree', nodes, edges, note });
+const matrix = (title, labels, note) => ({ title, layout: 'matrix', labels, note });
+const pipeline = (title, labels, note) => ({ title, layout: 'pipeline', labels, note });
+
 const chapters = [
   createChapter({
     number: 1,
-    title: 'Digital Systems and Data Representation',
-    hook: 'A processor only moves bit patterns; representation gives those patterns meaning as numbers, characters, and instructions.',
+    title: 'Basic Structure of Computers',
+    hook: 'Follow the connected route from input and stored instructions to processing and useful output.',
     lessons: [
-      lesson('Number-system conversion', 'Binary, octal, decimal, and hexadecimal are positional systems; each digit contributes digit x base^position.', `(101101)2
-= 32 + 8 + 4 + 1
-= (45)10 = (2D)16`, 'Convert binary 101101 to decimal and hexadecimal.', `1011012 = 32 + 8 + 4 + 1 = 45 decimal. Grouping as 0010 1101 gives 2D hexadecimal.`),
-      lesson('Unsigned and signed range', "An n-bit unsigned value ranges from 0 to 2^n - 1; n-bit two's-complement ranges from -2^(n-1) to 2^(n-1) - 1.", `8-bit unsigned: 0 to 255
-8-bit signed: -128 to 127`, "Give the unsigned and two's-complement ranges for 8 bits.", `Unsigned: 0 through 255. Two's-complement: -128 through 127.`),
-      lesson("Two's complement", "Negating a fixed-width two's-complement number means invert every bit and add one.", `+18 = 00010010
-invert 11101101
-add 1 11101110 = -18`, "Represent -18 in 8-bit two's complement.", `18 is 00010010. Invert to 11101101 and add 1, producing 11101110.`),
-      lesson('Overflow', 'Signed overflow occurs when two operands with the same sign produce a result with the opposite sign.', `01111111 (+127)
-+00000001 (+1)
-=10000000 (-128 interpreted) -> overflow`, 'Why does 127 + 1 overflow in 8-bit signed arithmetic?', `The mathematical result 128 is outside the range -128 to 127. Two positive operands produce a negative sign bit, signaling overflow.`),
-      lesson('Character and floating-point data', 'Characters use coded integers such as ASCII or Unicode; floating point stores sign, exponent, and significand.', `ASCII 'A' = 65 = 0x41
-Float idea: (-1)^sign x significand x base^exponent`, 'What numeric ASCII value represents uppercase A?', `Uppercase A has ASCII decimal value 65, hexadecimal 41.`),
+      lesson('Computer types and purpose', 'Personal system -> Workstation/server -> Enterprise system\nInput data -> Programmed processing -> Useful result', `Problem size -> performance need -> suitable computer class`, 'What determines which computer type suits a task?', `Workload size, response time, storage, I/O, cost, and reliability requirements determine the suitable class.`, flow('Computer classes', ['Personal', 'Workstation', 'Server', 'Enterprise', 'Application'], 'Example: transaction processing needs high I/O capacity and reliability.')),
+      lesson('Functional units', 'Input -> Memory -> Processor -> Output\nControl unit -> Datapath -> Result', `Keyboard -> memory -> CPU -> display`, 'Name the major functional units.', `Input, output, memory, processing, and control are the major units.`, graph('Functional units', [['Input', 48, 88], ['Memory', 180, 35], ['Processor', 180, 130], ['Output', 312, 88]], [[0, 1, 'data'], [1, 2, 'instruction'], [2, 1, 'result'], [2, 3, 'result']], 'Example: instructions and input data meet in memory before execution.')),
+      lesson('Basic operation of a computer', 'PC address -> Fetch -> Decode -> Execute -> Store result\nClock pulse -> Register transfers -> Next step', `PC -> MAR -> memory -> IR -> ALU -> destination`, 'What happens during one instruction cycle?', `The processor fetches, decodes, obtains operands, executes, stores the result, and selects the next instruction.`, cycle('Instruction cycle', ['Fetch', 'Decode', 'Execute', 'Store / next'], 'Example: ADD activates operand reads, the ALU, and destination write.')),
+      lesson('Bus structures', 'Source register -> Shared bus -> Destination register\nAddress lines -> Location\nData lines -> Value\nControl lines -> Read/write timing', `CPU -- address/data/control -- memory and I/O`, 'What information travels on a system bus?', `Address, data, and control information travel on the bus.`, graph('System bus', [['CPU', 48, 86], ['Bus', 180, 86], ['Memory', 310, 38], ['I/O', 310, 136]], [[0, 1, 'address/data/control'], [1, 2], [1, 3]], 'Example: a read sends an address out and brings data back.')),
+      lesson('Performance and parallel systems', 'Instruction count -> CPI -> Clock period -> CPU time\nMore processors -> Shared work -> Higher throughput\nSerial work -> Speedup limit', `CPU time = instruction count x CPI x clock-cycle time`, 'Why is clock rate alone incomplete?', `Instruction count, CPI, memory delays, I/O, and usable parallelism also determine execution time.`, flow('Performance causes', ['Program', 'Instruction count', 'CPI', 'Clock time', 'CPU time'], 'Example: cache misses can increase CPI enough to cancel a faster clock.')),
     ],
-    trap: 'A bit pattern has no single meaning until its representation is known; 11111111 can mean 255 or -1.',
-    practice: "Convert values among four bases, form two's complements, and test three signed additions for overflow.",
+    trap: 'Architecture is programmer-visible behaviour; organization is the hardware arrangement that implements it.',
+    practice: 'Draw the full computer and trace one LOAD through every connected unit.',
   }),
   createChapter({
     number: 2,
-    title: 'Logic and Register Transfer',
-    hook: 'Register-transfer notation is the processor choreography: which values move, which operation transforms them, and when.',
+    title: 'Machine Instructions and Programs',
+    hook: 'Instructions connect software meaning to registers, memory addresses, and control flow.',
     lessons: [
-      lesson('Boolean building blocks', 'AND requires both inputs, OR requires either input, XOR detects difference, and NOT complements one input.', `A B | AND OR XOR
-0 0 |  0   0   0
-0 1 |  0   1   1
-1 0 |  0   1   1
-1 1 |  1   1   0`, 'What outputs do AND, OR, and XOR produce for inputs A=1 and B=0?', `AND = 0, OR = 1, and XOR = 1.`),
-      lesson('Registers and buses', 'Registers hold processor words; a shared bus provides a controlled path for transferring one selected source at a time.', `R1 -> bus -> R2
-RTL: R2 <- R1`, 'Interpret the register-transfer statement R2 <- R1.', `On the active control event, the contents of R1 are copied into R2. R1 itself is unchanged.`),
-      lesson('Conditional transfers', 'A control function before a colon enables a microoperation only when that condition is true.', `P: R2 <- R1
-Means: if P = 1, copy R1 into R2`, 'What happens in P: R2 <- R1 when P is zero?', `No transfer occurs; R2 keeps its previous value.`),
-      lesson('Arithmetic microoperations', 'Register-level arithmetic includes add, subtract, increment, decrement, and add-with-carry.', `R3 <- R1 + R2
-R1 <- R1 + 1
-R4 <- R4 - R5`, 'Write RTL to increment register R6.', `R6 <- R6 + 1`),
-      lesson('Logic and shift microoperations', 'Logic operations manipulate selected bits; logical, arithmetic, and circular shifts move bit positions differently.', `R1 = 10110010
-logical right shift -> 01011001
-arithmetic right shift -> 11011001`, 'Right-shift 10110010 logically and arithmetically as an 8-bit signed value.', `Logical right shift fills with 0: 01011001. Arithmetic right shift preserves the sign bit 1: 11011001.`),
+      lesson('Memory locations and byte order', 'Byte address -> Selected byte\nWord address -> Consecutive bytes -> Big- or little-endian order\nNatural boundary -> Aligned access -> Fewer transfers', `0x12345678 -> 12 34 56 78 or 78 56 34 12`, 'What does endianness decide?', `It decides how bytes of a multibyte word occupy increasing addresses.`, compare('Byte ordering', [['Big-endian', 'MSB first', '12 34 56 78'], ['Little-endian', 'LSB first', '78 56 34 12']], 'Example: both rows encode the same word 0x12345678.')),
+      lesson('Registers and sequencing', 'PC -> Next instruction address -> Memory\nMemory word -> IR -> Opcode decode\nOperands -> ALU -> Destination\nBranch condition -> New PC', `PC -> MAR -> MDR -> IR; PC <- next`, 'State the roles of PC and IR.', `PC identifies the next instruction; IR holds the current instruction for decode and execution.`, flow('Instruction sequencing', ['PC', 'Memory fetch', 'IR', 'Decode', 'Execute'], 'Example: a taken branch replaces the sequential PC with its target.')),
+      lesson('Addressing modes', 'Immediate field -> Value\nRegister field -> Register operand\nBase + offset -> Effective address\nPointer value -> Indirect operand', `R2=1000, offset=24 -> EA=1024`, 'Why is an address field not always the effective address?', `The mode may treat it as a value, register, pointer, displacement, or part of an address calculation.`, tree('Addressing choices', [['Operand', 180, 24], ['Immediate', 55, 90], ['Register', 135, 150], ['Memory', 285, 90], ['Base + offset', 245, 150], ['Indirect', 330, 150]], [[0, 1], [0, 2], [0, 3], [3, 4], [3, 5]], 'Example: indexed mode calculates an address from base plus offset.')),
+      lesson('Stacks and subroutines', 'Arguments -> Registers/stack -> CALL\nCALL -> Save return address -> Callee\nCallee -> Save state -> Compute -> Restore -> RETURN', `push arguments -> call -> compute -> return`, 'Why preserve selected registers during a call?', `The caller must continue with values that the calling convention promises will survive.`, cycle('Subroutine route', ['Caller', 'Save return', 'Callee work', 'Restore / return'], 'Example: nested calls keep separate return addresses on the stack.')),
+      lesson('Logic, shift, and I/O instructions', 'AND mask -> Clear bits\nOR mask -> Set bits\nXOR mask -> Toggle bits\nShift -> Scale/extract\nI/O instruction -> Device register', `R1 AND 00001111 -> keep low nibble`, 'How does an AND mask isolate bits?', `Mask 1s preserve source positions; mask 0s clear them.`, flow('Bit-field operation', ['Register', 'Choose mask', 'Logic / shift', 'Selected field', 'Program use'], 'Example: AND 0x0F extracts the low four bits.')),
     ],
-    trap: 'Register transfer copies a value; it does not normally erase the source register.',
-    practice: 'Translate five short datapath actions into RTL and calculate the result of arithmetic, logic, and shift microoperations.',
+    trap: 'An address identifies a location; the operand appears only after the addressing calculation and access.',
+    practice: 'Decode five instructions, calculate effective addresses, and draw CALL/RETURN stack changes.',
   }),
   createChapter({
     number: 3,
-    title: 'Basic Computer Organization',
-    hook: 'The stored-program computer repeatedly fetches a coded instruction, decodes its promise, and performs its microoperations.',
+    title: 'ARM, Motorola, and Intel Instruction Sets',
+    hook: 'Different processors express the same algorithm through different registers, formats, and memory rules.',
     lessons: [
-      lesson('Stored-program concept', 'Instructions and data reside in addressable memory, allowing programs to be fetched and changed like other stored information.', `Memory:
-address 100 -> instruction
-address 101 -> instruction
-address 500 -> data`, 'What is the stored-program concept?', `Instructions and data are represented in memory, and the processor fetches instructions by address for execution.`),
-      lesson('Core CPU registers', 'The PC selects the next instruction, IR holds the current instruction, MAR addresses memory, and MDR carries transferred data.', `PC -> MAR
-Memory[MAR] -> MDR -> IR
-PC <- PC + 1`, 'State the roles of PC and IR.', `The program counter holds the address of the next instruction. The instruction register holds the instruction currently being decoded or executed.`),
-      lesson('Fetch cycle', 'A fetch copies PC to the memory address register, reads the instruction, loads IR, and advances PC.', `T0: MAR <- PC
-T1: MDR <- M[MAR], PC <- PC + 1
-T2: IR <- MDR`, 'Write a three-step RTL fetch sequence.', `MAR <- PC; MDR <- M[MAR] and PC <- PC + 1; IR <- MDR.`),
-      lesson('Decode and execute', 'The control unit decodes opcode and addressing fields, then issues microoperations appropriate to that instruction.', `IR opcode = ADD
-EA <- address field
-AC <- AC + M[EA]`, 'What does instruction decoding determine?', `It determines the required operation, operand location or addressing method, and the control sequence needed to execute it.`),
-      lesson('Interrupt cycle', 'An interrupt saves enough return state, branches to a service routine, handles an event, and later restores execution.', `finish instruction
-save PC
-load ISR address
-service event
-restore PC`, 'Why is processor state saved before an interrupt service routine runs?', `The saved state allows the interrupted program to resume from the correct point with its previous execution context.`),
+      lesson('RISC and CISC viewpoints', 'RISC -> Regular formats -> Load/store path -> Simple decode\nCISC -> Rich formats -> Memory-capable operations -> Dense code', `RISC: LOAD -> ADD -> STORE\nCISC: ADD with memory operand`, 'What is the RISC load/store rule?', `Only load and store access memory; arithmetic and logic mainly use registers.`, compare('RISC and CISC', [['RISC', 'Load operands', 'Register ALU', 'Store'], ['CISC', 'Rich decode', 'Memory/ALU', 'Write']], 'Example: both paths compute the same sum with different sequences.')),
+      lesson('ARM organization', 'R0-R15 -> ALU/barrel shifter -> Result\nR15 -> PC\nFlags -> Conditional action\nLoad/store -> Memory', `LDR R1,[R2,#4] -> R1 <- M[R2+4]`, 'Why is the barrel shifter useful?', `It shifts an operand inside many data-processing instructions, combining shift and arithmetic.`, graph('ARM datapath', [['Registers', 48, 86], ['Shifter', 145, 38], ['ALU', 245, 86], ['Flags', 315, 38], ['Result', 315, 140]], [[0, 1], [1, 2], [0, 2], [2, 3], [2, 4]], 'Example: ADD may consume one shifted register operand.')),
+      lesson('Motorola 68000 organization', 'D0-D7 -> Data operations\nA0-A7 -> Addresses/stacks\nAddressing mode -> Operand selection\nCondition codes -> Branch', `MOVE.L (A0)+,D0 -> read then advance A0`, 'Why separate data and address registers?', `They support clear arithmetic and efficient pointer/address operations.`, matrix('68000 register roles', [['D0-D7', 'data'], ['A0-A7', 'addresses'], ['PC / SR', 'control'], ['Address modes', 'operands']], 'Example: postincrement advances a pointer after access.')),
+      lesson('Intel IA-32 organization', 'General registers -> Data/address roles\nEIP -> Next instruction\nEFLAGS -> Conditions\nBase + scaled index + displacement -> Address\nVariable bytes -> Decode', `MOV EAX,[EBX+ECX*4+8]`, 'What does scaled-index addressing support?', `It efficiently addresses arrays and records from a base, scaled index, and displacement.`, flow('IA-32 address', ['Base', 'Scaled index', 'Displacement', 'Linear address', 'Operand'], 'Example: index x 4 selects a 4-byte array element.')),
+      lesson('Instruction-set comparison', 'Algorithm -> Register allocation -> ISA instructions\nSame operation -> Different encoding\nSame branch -> Different flags/conditions\nSame data -> Different address rules', `c=a+b -> architecture-specific load/add/store`, 'Why does one source program produce different machine code?', `Each ISA has different registers, formats, addressing modes, and control-flow features.`, compare('Three ISA styles', [['ARM', 'Load/store', 'Regular forms', 'Flags'], ['68000', 'D/A registers', 'Rich modes', 'Codes'], ['IA-32', 'Variable forms', 'Scaled address', 'EFLAGS']], 'Example: compilers map one expression to each ISA legal operations.')),
     ],
-    trap: 'The PC normally points to the next instruction after fetch, not the instruction currently held in IR.',
-    practice: 'Trace fetch, decode, execute, and interrupt cycles using register-transfer statements.',
+    trap: 'Compare register model, movement, addressing, encoding, and control flow instead of memorising isolated opcodes.',
+    practice: 'Translate one addition, array access, and branch into ARM-, 68000-, and IA-32-style traces.',
   }),
   createChapter({
     number: 4,
-    title: 'CPU and Register Organization',
-    hook: 'Inside the CPU, registers shorten the distance to data and the datapath decides what can happen in one clock step.',
+    title: 'Input/Output Organization',
+    hook: 'I/O coordinates a fast CPU with slower devices through interfaces, interrupts, buses, and direct transfers.',
     lessons: [
-      lesson('General-purpose registers', 'A register file provides fast operands and destinations, reducing repeated memory access.', `ADD R1, R2, R3
-R1 <- R2 + R3`, 'Interpret the three-register instruction ADD R1, R2, R3.', `The processor adds the contents of R2 and R3 and writes the result into R1.`),
-      lesson('Accumulator organization', 'An accumulator machine uses an implied central register, producing compact instructions but more accumulator traffic.', `ADD X
-AC <- AC + M[X]`, 'What operand is implied by ADD X in an accumulator machine?', `The accumulator is the implied first operand and destination; AC becomes AC + memory[X].`),
-      lesson('Stack organization', 'A stack machine takes operands from the top of a LIFO stack and pushes the result, often using zero-address instructions.', `PUSH 4
-PUSH 7
-ADD
-Stack top -> 11`, 'Evaluate PUSH 4, PUSH 7, ADD on a stack machine.', `ADD pops 7 and 4, adds them, and pushes 11. The stack top is 11.`),
-      lesson('Datapath and ALU', 'Multiplexers select operands, the ALU performs an operation, and destination-enable signals store the result.', `Select A=R2, B=R3
-ALU operation=ADD
-Enable R1
-=> R1 <- R2 + R3`, 'Which three control choices are needed for R1 <- R2 + R3?', `Select R2 and R3 as ALU inputs, select addition as the ALU function, and enable loading of R1.`),
-      lesson('Status flags', 'Arithmetic results update flags such as zero, carry, negative/sign, and overflow for later conditional instructions.', `11111111 + 00000001
-= 00000000 with carry out
-Z=1, C=1`, 'For 8-bit FF + 01, what are the zero and carry flags?', `The result is 00 with a carry out, so Z = 1 and C = 1.`),
+      lesson('I/O interfaces', 'Device -> Interface -> Data/status/control registers -> Bus -> CPU\nAddress decoder -> Selected interface -> Register action', `CPU reads STATUS -> tests READY -> reads DATA`, 'Why place an interface between device and bus?', `It adapts timing and device signals while exposing standard registers.`, graph('I/O connection', [['Device', 45, 86], ['Interface', 145, 86], ['Bus', 245, 86], ['CPU', 325, 38], ['Memory', 325, 136]], [[0, 1], [1, 2], [2, 3], [2, 4]], 'Example: a keyboard event becomes readable data plus a ready flag.')),
+      lesson('Program-controlled I/O', 'CPU -> Read status -> Ready? -> Transfer data -> Continue\nNot ready -> Repeat status test -> CPU cycles lost', `while (!(STATUS & READY)) {} -> read DATA`, 'What is the main cost of polling?', `The CPU repeatedly checks status instead of doing other useful work.`, cycle('Polling route', ['Read status', 'Test ready', 'Wait / repeat', 'Transfer'], 'Example: one slow device can cause many repeated reads.')),
+      lesson('Interrupt handling', 'Device request -> Finish instruction -> Save state -> ISR -> Restore -> Resume\nMask/priority -> Select request -> Service order', `request -> vector -> handler -> return`, 'Why save state before an ISR?', `The interrupted program must resume with its previous control and working state.`, flow('Interrupt route', ['Device request', 'Save state', 'ISR', 'Acknowledge', 'Restore / resume'], 'Example: the ISR reads input and clears the request.')),
+      lesson('Direct memory access', 'CPU setup -> DMA -> Device/memory block transfer -> Completion interrupt\nBus request -> Grant -> DMA cycles -> Release', `address + count + direction -> DMA transfer`, 'How does DMA reduce CPU work?', `DMA performs repeated device-memory transfers after setup.`, graph('DMA path', [['CPU', 45, 38], ['DMA', 180, 38], ['Device', 315, 38], ['Memory', 180, 140]], [[0, 1, 'setup'], [1, 2, 'data'], [1, 3, 'block']], 'Example: a disk block reaches RAM without one CPU copy per word.')),
+      lesson('Buses and arbitration', 'Master request -> Arbiter -> Grant -> Address/control -> Data -> Release\nSynchronous bus -> Clock\nAsynchronous bus -> Request/acknowledge', `request -> grant -> transfer -> release`, 'Why does a shared bus need arbitration?', `Arbitration selects one master and prevents conflicting bus drivers.`, flow('Bus transaction', ['Request', 'Arbitrate', 'Grant', 'Transfer', 'Release'], 'Example: DMA waits for a bus grant before transferring.')),
     ],
-    trap: 'Carry and signed overflow are different: carry describes an unsigned extra bit, while overflow describes an invalid signed result.',
-    practice: 'Evaluate short instruction sequences on accumulator, general-register, and stack organizations.',
+    trap: 'Interrupts transfer control to software; DMA transfers data in hardware.',
+    practice: 'Trace one device transfer with polling, interrupts, and DMA, then compare CPU and bus work.',
   }),
   createChapter({
     number: 5,
-    title: 'Instructions and Addressing Modes',
-    hook: 'An instruction says what to do; its addressing mode explains where the real operand is hiding.',
+    title: 'The Memory System',
+    hook: 'Memory hierarchy connects small fast storage to large slow storage by exploiting locality.',
     lessons: [
-      lesson('Instruction fields', 'An instruction commonly contains an opcode plus register, addressing-mode, and immediate or address fields.', `| opcode | mode | register | address/immediate |`, 'What information does an opcode carry?', `The opcode identifies the operation the processor must perform, such as add, load, branch, or shift.`),
-      lesson('Immediate and direct addressing', 'Immediate mode embeds the value; direct mode stores the memory address of the operand.', `MOV R1, #25 -> R1 <- 25
-LOAD R1, 500 -> R1 <- M[500]`, 'Distinguish immediate #25 from direct address 25.', `Immediate #25 is the value 25 itself. Direct 25 means the operand is read from memory address 25.`),
-      lesson('Indirect addressing', 'Indirect mode reads an address from a register or memory location before accessing the operand.', `R2 = 800
-LOAD R1, (R2)
-R1 <- M[800]`, 'If R2 contains 800, what effective address is used by register-indirect (R2)?', `The effective address is the value stored in R2, so EA = 800.`),
-      lesson('Indexed and relative addressing', 'Indexed mode adds an index to a base address; PC-relative mode adds a displacement to the current PC.', `Base = 1000, index = 24
-EA = 1024
-PC = 400, displacement = -20 -> EA = 380`, 'Find the effective address for base 1000 and index 24.', `EA = base + index = 1000 + 24 = 1024.`),
-      lesson('RISC and CISC', 'RISC favors simple regular instructions and load/store access; CISC typically provides richer, variable operations and addressing.', `RISC: LOAD, ADD registers, STORE
-CISC: operation may combine memory access and arithmetic`, 'Give one characteristic commonly associated with RISC.', `A common RISC characteristic is a simple, regular instruction set in which arithmetic uses registers and separate load/store instructions access memory.`),
+      lesson('Hierarchy and locality', 'Registers -> Cache -> Main memory -> Secondary storage\nRecent reuse -> Temporal locality -> Hit\nNearby address -> Spatial locality -> Block fetch', `array scan -> adjacent words arrive together`, 'Why fetch a cache block instead of one word?', `A block exploits spatial locality by bringing nearby words likely to be used soon.`, flow('Memory hierarchy', ['Registers', 'Cache', 'Main memory', 'Secondary storage'], 'Example: active operands stay close while inactive files remain on storage.')),
+      lesson('Cache mapping', 'Memory block -> Index/set -> Candidate line\nAddress tag -> Stored tag -> Hit/miss\nDirect -> One line\nSet-associative -> Few lines\nAssociative -> Any line', `line = blockNumber mod lineCount`, 'What identifies a cache hit?', `A valid candidate line has a stored tag matching the address tag.`, compare('Cache placement', [['Direct', 'One line', 'Simple', 'Conflicts'], ['Set-assoc.', 'One set', 'Balanced', 'Few checks'], ['Associative', 'Any line', 'Flexible', 'Many checks']], 'Example: block 29 maps to line 5 in an eight-line direct cache.')),
+      lesson('Replacement and writes', 'Miss + full set -> Victim -> New block\nWrite-through -> Cache + memory now\nWrite-back -> Dirty cache -> Memory on eviction\nWrite-allocate -> Load missed block', `dirty victim -> memory write -> replacement`, 'How does write-back reduce traffic?', `Repeated writes remain in cache and reach memory once when the dirty line is evicted.`, flow('Write-back route', ['Write cache', 'Set dirty', 'Evict later', 'Update memory', 'Load block'], 'Example: many writes to one line may cause one memory update.')),
+      lesson('Semiconductor memory', 'Address -> Decoder -> Cell array -> Sense/write -> Data\nSRAM -> Fast/no refresh -> Cache\nDRAM -> Dense/refresh -> Main memory\nROM/flash -> Nonvolatile -> Firmware/storage', `4K locations -> 12 address bits`, 'Why use DRAM for main memory and SRAM for cache?', `DRAM is denser and cheaper; SRAM is faster but larger and costlier per bit.`, tree('Memory families', [['Memory', 180, 24], ['Volatile', 95, 82], ['Nonvolatile', 265, 82], ['SRAM', 55, 145], ['DRAM', 135, 145], ['ROM', 230, 145], ['Flash', 310, 145]], [[0, 1], [0, 2], [1, 3], [1, 4], [2, 5], [2, 6]], 'Example: SRAM stores cache lines; DRAM stores active programs.')),
+      lesson('Virtual memory and TLB', 'Virtual address -> Page + offset -> TLB\nTLB hit -> Frame -> Physical address\nTLB miss -> Page table -> Present?\nNot present -> Page fault -> Load -> Restart', `virtual page 6 -> frame 14; offset unchanged`, 'TLB miss versus page fault?', `A TLB miss needs a page-table lookup; a page fault needs the absent page loaded from storage.`, flow('Address translation', ['Virtual address', 'TLB / page table', 'Frame', 'Physical address', 'Memory'], 'Example: translation changes the page number but preserves offset.')),
     ],
-    trap: 'The address field is not always the effective address; the addressing mode determines how it must be interpreted.',
-    practice: 'Calculate effective addresses for immediate, direct, indirect, indexed, and PC-relative examples.',
+    trap: 'Judge cache performance with hit time, miss rate, and miss penalty, not hit rate alone.',
+    practice: 'Map blocks, split address fields, compare writes, and trace TLB misses and page faults.',
   }),
   createChapter({
     number: 6,
-    title: 'Control Unit Design',
-    hook: 'The control unit converts an instruction into precisely timed signals that animate the datapath.',
+    title: 'Arithmetic',
+    hook: 'Arithmetic hardware connects finite-width bit rules to carries, signs, precision, and exceptions.',
     lessons: [
-      lesson('Control signals', 'Control signals choose register inputs, ALU functions, memory operations, and sequencing decisions during each clock step.', `T0: PCout, MARin
-T1: Read, MDRin, PCincrement
-T2: MDRout, IRin`, 'What do PCout and MARin accomplish together?', `PCout places the PC value on the internal path and MARin loads that value into the memory address register.`),
-      lesson('Hardwired control', 'Hardwired logic generates signals directly from instruction bits, timing, and conditions; it is fast but harder to modify.', `signals = combinational/sequential logic(opcode, flags, time)`, 'Give one advantage and one disadvantage of hardwired control.', `It is generally fast, but redesigning or extending a complex instruction set is difficult.`),
-      lesson('Microprogrammed control', 'A control memory stores microinstructions whose fields generate signals and choose the next microinstruction.', `Control address register -> control memory
-microinstruction -> datapath signals + next address`, 'What is stored in control memory?', `Control memory stores microinstructions that specify datapath control signals and microprogram sequencing information.`),
-      lesson('Horizontal and vertical microcode', 'Horizontal microcode uses wide, direct control bits; vertical microcode encodes fields that require decoding.', `Horizontal: wide, parallel, fast
-Vertical: compact, encoded, extra decode`, 'Why is horizontal microcode usually wider than vertical microcode?', `It provides more direct control bits, often one or a small field per datapath action, rather than heavily encoding them.`),
-      lesson('Microprogram sequencing', 'The next microaddress may be sequential, a branch chosen by a condition, or a mapped entry for a new opcode.', `next = CAR + 1
-or branch address if flag true
-or opcode mapping address`, 'Name three possible sources of the next microinstruction address.', `The next sequential address, a branch target selected by a condition, or an entry address derived from the instruction opcode.`),
+      lesson('Unsigned addition and subtraction', 'A + B + Carry-in -> Sum + Carry-out\nA - B -> A + Two complement of B -> Result\nCarry chain -> Delay -> Faster carry logic', `1101 + 0011 = 1 0000`, 'What does carry-out mean for unsigned addition?', `It is the extra bit beyond the fixed width and signals unsigned overflow.`, flow('Binary addition', ['A bits', 'B bits', 'Adder stages', 'Sum', 'Carry out'], 'Example: FF + 01 gives 00 with carry 1 in eight bits.')),
+      lesson('Signed addition', 'Two-complement operands -> Adder -> Result\nSame signs + opposite result sign -> Overflow\nSign extension -> Wider word -> Same value', `01111111 + 00000001 = 10000000 -> overflow`, 'When does signed addition overflow?', `Same-sign operands producing an opposite-sign result indicate overflow.`, compare('Carry and overflow', [['Unsigned', 'Carry out', 'Range exceeded'], ['Signed', 'Same signs', 'Wrong result sign']], 'Example: 127 + 1 overflows signed eight-bit range.')),
+      lesson('Multiplication', 'Multiplier bit -> 0 skip / 1 add\nShift -> Next partial product -> Final product\nBooth recoding -> Runs of ones -> Fewer operations', `0101 x 0011 -> 0101 + 1010 = 1111`, 'Why does shift-and-add work?', `Each set multiplier bit selects a power-of-two-shifted multiplicand.`, cycle('Shift-and-add', ['Inspect bit', 'Add if 1', 'Shift', 'Next bit'], 'Example: 101 x 11 adds 101 and 1010.')),
+      lesson('Division', 'Partial remainder -> Shift dividend bit -> Subtract divisor\nNonnegative -> Quotient bit 1\nNegative -> Restore -> Quotient bit 0\nRepeat -> Quotient + remainder', `13 / 3 -> quotient 4, remainder 1`, 'What relation checks division?', `Dividend = divisor x quotient + remainder, with a smaller unsigned remainder.`, cycle('Restoring division', ['Shift', 'Subtract', 'Set quotient bit', 'Restore if negative'], 'Example: 13 = 3 x 4 + 1.')),
+      lesson('Floating-point arithmetic', 'Sign + Exponent + Fraction -> IEEE value\nAddition -> Align -> Add significands -> Normalize -> Round\nSpecial exponent -> Zero/infinity/NaN', `1.5 x 2^3 + 1.0 x 2^1 -> 1.75 x 2^3`, 'Why align exponents?', `Significand bits must represent equal place values before addition.`, flow('Floating-point addition', ['Unpack', 'Align', 'Add', 'Normalize', 'Round / pack'], 'Example: shift the smaller significand until exponents match.')),
     ],
-    trap: 'Microcode is low-level control information, not the same thing as the machine-code program stored in main memory.',
-    practice: 'Write a small control sequence for fetch and compare how hardwired and microprogrammed units would implement it.',
+    trap: 'Carry detects unsigned overflow; sign relationships detect signed overflow.',
+    practice: 'Trace unsigned/signed sums, multiplication, division, and floating-point addition.',
   }),
   createChapter({
     number: 7,
-    title: 'Computer Arithmetic',
-    hook: 'Arithmetic hardware is built from finite-width rules, so every operation carries questions about signs, carries, precision, and overflow.',
+    title: 'Basic Processing Unit',
+    hook: 'Registers, buses, the ALU, and control signals form the timed route that realizes each instruction.',
     lessons: [
-      lesson('Binary addition and subtraction', "An n-bit adder forms sum and carry; subtraction can reuse it by adding the two's complement of the subtrahend.", `13 - 5
-1101 + two's complement of 0101
-1101 + 1011 = 1 1000 -> 1000 = 8`, "Calculate 13 - 5 using 4-bit two's-complement addition.", `Two's complement of 0101 is 1011. 1101 + 1011 = 1 1000; discard the carry, leaving 1000, which is 8.`),
-      lesson('Ripple and carry lookahead', 'Ripple adders wait for carry to pass through stages; carry lookahead computes carries in parallel from generate and propagate terms.', `Gi = Ai AND Bi
-Pi = Ai XOR Bi
-C(i+1) = Gi OR (Pi AND Ci)`, 'Why is carry lookahead faster than ripple carry?', `It computes carry signals from generate/propagate logic in parallel instead of waiting for each preceding full adder.`),
-      lesson('Shift-and-add multiplication', 'Binary multiplication adds shifted copies of the multiplicand for multiplier bits equal to one.', `101 (5) x 011 (3)
-101
-1010
-=1111 (15)`, 'Multiply binary 101 by 011.', `The set multiplier bits select 101 and 1010. Their sum is 1111 binary, or 15 decimal.`),
-      lesson('Restoring division idea', 'Binary division repeatedly shifts a partial remainder, subtracts the divisor, and restores when the subtraction is negative.', `Dividend 13 / divisor 3
-Quotient = 4
-Remainder = 1`, 'What quotient and remainder result from unsigned 13 divided by 3?', `Quotient = 4 and remainder = 1 because 13 = 3 x 4 + 1.`),
-      lesson('Floating-point arithmetic', 'Floating-point addition aligns exponents, adds significands, normalizes, rounds, and checks exceptional ranges.', `1.5 x 2^3 + 1.0 x 2^1
-align -> 1.5 x 2^3 + 0.25 x 2^3
-= 1.75 x 2^3`, 'Why must exponents be aligned before floating-point significands are added?', `The significands represent different place values until their exponents match, so alignment is required for corresponding bits to have equal weight.`),
+      lesson('Datapath fundamentals', 'Source registers -> Multiplexers -> ALU -> Shifter -> Destination\nOpcode -> Control -> Select/function/load\nClock edge -> State update', `R1 <- R2 + R3 needs source selects + ADD + R1 load`, 'What controls implement R1 <- R2 + R3?', `Select R2/R3, select ADD, and enable R1 to capture the result.`, graph('Datapath', [['Registers', 48, 86], ['MUX', 135, 38], ['ALU', 225, 86], ['Shifter', 305, 38], ['Destination', 305, 138]], [[0, 1], [1, 2], [2, 3], [2, 4]], 'Example: control lines activate one connected path per step.')),
+      lesson('Single-bus organization', 'One source -> Bus -> Destination\nR2 -> Y temporary\nR3 + Y -> ALU -> Z temporary\nZ -> Bus -> R1', `R2out,Yin -> R3out,ADD,Zin -> Zout,R1in`, 'Why use Y and Z registers?', `One bus cannot carry both operands and result simultaneously, so they preserve values across steps.`, flow('Single-bus ADD', ['R2 -> Y', 'R3 -> bus', 'ALU -> Z', 'Z -> bus', 'R1 load'], 'Example: each bus phase performs one part of the addition.')),
+      lesson('Multiple-bus organization', 'Bus A -> ALU input A\nBus B -> ALU input B\nALU -> Bus C -> Destination\nParallel paths -> Fewer steps -> More hardware', `R1 <- R2 + R3 in one datapath step`, 'Main multiple-bus trade-off?', `More parallel transfers reduce steps but require extra ports, wiring, and selectors.`, graph('Three-bus datapath', [['Register file', 55, 86], ['Bus A', 135, 35], ['Bus B', 135, 137], ['ALU', 235, 86], ['Bus C', 320, 86]], [[0, 1], [0, 2], [1, 3], [2, 3], [3, 4], [4, 0]], 'Example: two operands leave while one result returns.')),
+      lesson('Hardwired control', 'Opcode + Timing + Flags -> Logic/state machine -> Signals\nDirect logic -> Fast\nInstruction change -> Hardware redesign', `signal = opcodeDecode AND timingStep AND condition`, 'Advantage and limitation?', `Hardwired control is fast but difficult to change for complex instructions.`, flow('Hardwired control', ['Opcode / flags', 'Decoder', 'Timing state', 'Control logic', 'Signals'], 'Example: ADD at T3 enables ALU-add and destination-load.')),
+      lesson('Microprogrammed control', 'Opcode -> Start microaddress -> Control memory -> Microinstruction\nFields -> Datapath signals\nNext field + condition -> Next address', `CAR -> control memory -> MIR -> signals + next CAR`, 'What is in control memory?', `Microinstructions containing datapath signals and sequencing fields.`, cycle('Microprogram sequence', ['Control address', 'Read microinstruction', 'Drive signals', 'Choose next'], 'Example: fetch uses several connected microinstructions.')),
     ],
-    trap: "Discarding a final carry is correct for fixed-width two's-complement subtraction, but carry alone does not decide signed overflow.",
-    practice: 'Perform binary add, subtract, multiply, and divide operations, then outline the stages of floating-point addition.',
+    trap: 'Machine instructions describe visible work; microinstructions control internal hardware steps.',
+    practice: 'Write fetch, ADD, LOAD, and branch microoperations for single- and multiple-bus units.',
   }),
   createChapter({
     number: 8,
-    title: 'Memory Hierarchy and Cache',
-    hook: 'Memory hierarchy wins by keeping a small amount of likely-needed data close and tolerating distance for the rest.',
+    title: 'Pipelining',
+    hook: 'Pipelining overlaps stages; hazards show where connected instructions cannot advance independently.',
     lessons: [
-      lesson('Locality', 'Temporal locality reuses recent items; spatial locality accesses addresses near a recent item.', `Loop reuses sum -> temporal locality
-Sequential array scan -> spatial locality`, 'Identify the locality used by sequentially scanning an array.', `Spatial locality, because consecutive elements occupy nearby memory addresses.`),
-      lesson('Cache mapping', 'Direct mapping allows one line, associative mapping allows any line, and set-associative mapping allows any line within one set.', `Direct-mapped line = block number mod line count
-Block 29, 8 lines -> line 5`, 'Where does memory block 29 map in an 8-line direct-mapped cache?', `29 mod 8 = 5, so it maps to cache line 5.`),
-      lesson('Cache address fields', 'An address divides into tag, set or line index, and block offset according to cache organization.', `32-bit address, 64-byte block -> 6 offset bits
-256 direct lines -> 8 index bits
-tag = 32 - 6 - 8 = 18 bits`, 'Find tag bits for a 32-bit direct cache with 256 lines and 64-byte blocks.', `Offset = log2(64) = 6 bits, index = log2(256) = 8 bits, so tag = 32 - 6 - 8 = 18 bits.`),
-      lesson('Replacement and writes', 'Associative caches need a victim policy; write-through updates lower memory immediately, while write-back waits until eviction.', `Write-through: cache + memory now
-Write-back: mark dirty, memory on eviction`, 'How does write-back reduce memory traffic?', `Repeated writes update only the cache block; lower memory is updated once when the dirty block is evicted.`),
-      lesson('Average memory access time', 'AMAT combines hit time with miss probability and miss penalty.', `Hit time = 1 ns
-Miss rate = 0.05
-Penalty = 40 ns
-AMAT = 1 + 0.05 x 40 = 3 ns`, 'Calculate AMAT for 1 ns hit time, 5% miss rate, and 40 ns miss penalty.', `AMAT = 1 + 0.05 x 40 = 3 ns.`),
+      lesson('Pipeline basics', 'Instruction -> IF -> ID -> EX -> MEM -> WB\nFirst result -> Fill delay\nLater results -> About one/cycle\nSlowest stage -> Clock period', `ideal cycles = stages + instructions - 1`, 'Cycles for ten instructions in five stages?', `5 + 10 - 1 = 14 ideal cycles.`, pipeline('Five-stage pipeline', ['IF', 'ID', 'EX', 'MEM', 'WB'], 'Example: different instructions occupy different stages together.')),
+      lesson('Data hazards and forwarding', 'Producer -> Unwritten result -> Consumer -> RAW hazard\nLater-stage result -> Forward path -> Consumer input\nLoad unavailable -> Stall -> Resume', `ADD R1,... -> SUB ...,R1 needs forwarded R1`, 'How does forwarding help?', `It sends a produced value to the dependent stage before normal write-back.`, graph('Forwarding path', [['ADD EX', 45, 45], ['EX/MEM', 165, 45], ['SUB EX', 305, 45], ['Register file', 165, 140]], [[0, 1], [1, 2, 'forward'], [1, 3, 'later'], [3, 2, 'normal']], 'Example: SUB receives ADD result without waiting for write-back.')),
+      lesson('Control hazards', 'Branch -> Unknown path -> Speculative fetch\nPredict -> Continue -> Resolve\nCorrect -> Keep\nWrong -> Flush -> Correct PC -> Refill', `predict not taken -> branch taken -> flush`, 'What follows misprediction?', `Wrong-path work is discarded and fetching restarts at the correct PC.`, flow('Branch route', ['Predict PC', 'Fetch path', 'Resolve', 'Correct: keep', 'Wrong: flush'], 'Example: early resolution reduces discarded stages.')),
+      lesson('Pipeline registers and control', 'Stage output -> Pipeline register -> Next stage\nControl bits -> Travel with instruction -> Later action\nException -> Older finish -> Younger cancel', `IF/ID -> ID/EX -> EX/MEM -> MEM/WB`, 'Why pipeline registers?', `They preserve each instruction data/control while adjacent stages serve others.`, flow('Pipeline registers', ['IF/ID', 'ID/EX', 'EX/MEM', 'MEM/WB', 'Write-back'], 'Example: destination number travels with its result.')),
+      lesson('Superscalar performance', 'Instruction queue -> Multiple issue -> Parallel units -> Commit\nDependencies -> Issue limit\nBranch/cache miss -> Lost IPC\nUseful IPC -> Performance', `two-issue ideal -> up to two starts per cycle`, 'Why not always IPC 2?', `Dependencies, unit conflicts, branches, and cache misses block ideal issue.`, graph('Superscalar issue', [['Queue', 45, 86], ['Issue', 135, 86], ['ALU 1', 245, 35], ['ALU 2', 245, 86], ['Load/store', 245, 137], ['Commit', 330, 86]], [[0, 1], [1, 2], [1, 3], [1, 4], [2, 5], [3, 5], [4, 5]], 'Example: independent ADD and LOAD may issue together.')),
     ],
-    trap: 'A high hit rate can still perform poorly when the miss penalty is enormous; always evaluate AMAT.',
-    practice: 'Split cache addresses, map blocks, and calculate AMAT for several cache designs.',
+    trap: 'Pipelining improves throughput, not necessarily one-instruction latency.',
+    practice: 'Draw timing, mark RAW/branch hazards, and add forwarding, stalls, and flushes.',
   }),
   createChapter({
     number: 9,
-    title: 'Main and Virtual Memory',
-    hook: 'Main memory stores the active working set; virtual memory gives each process a larger, protected address space by moving pages on demand.',
+    title: 'Embedded Systems',
+    hook: 'Embedded systems connect sensing, computation, timing, and action under power and cost limits.',
     lessons: [
-      lesson('RAM and ROM families', 'SRAM is fast and used for caches; DRAM is dense and refreshed for main memory; nonvolatile memory retains data without power.', `SRAM -> cache
-DRAM -> main memory
-Flash/ROM -> firmware and persistent storage`, 'Why is DRAM commonly used for main memory instead of SRAM?', `DRAM cells are denser and cheaper per bit, allowing much larger capacities, although they are slower and require refresh.`),
-      lesson('Memory organization', 'Capacity equals addressable locations multiplied by bits per location; address pins select locations.', `4K x 8 memory
-locations = 4096 = 2^12
-address lines = 12
-capacity = 4096 bytes`, 'How many address lines are required for a 4K x 8 memory?', `4K = 4096 = 2^12 locations, so 12 address lines are required.`),
-      lesson('Paging', 'Virtual and physical memory are divided into fixed-size pages and frames; a page table maps virtual page numbers to frames.', `virtual address = page number | offset
-physical address = frame number | same offset`, 'Which part of a paged virtual address remains unchanged during translation?', `The page offset remains unchanged; the virtual page number is replaced by a physical frame number.`),
-      lesson('Translation lookaside buffer', 'A TLB caches recent page-table entries so most translations avoid an extra main-memory lookup.', `TLB hit -> frame found quickly
-TLB miss -> read page table, then update TLB`, 'What happens on a TLB miss when the page is present in memory?', `The processor or memory-management unit reads the page-table entry, obtains the frame number, and normally inserts the translation into the TLB.`),
-      lesson('Page faults', 'A page fault occurs when a referenced page is not resident; the OS loads it, possibly evicting another page, then restarts the instruction.', `reference absent page
-trap -> choose frame -> load page -> update table -> restart`, 'Outline the steps used to service a valid page fault.', `Trap to the OS, locate the page, obtain or free a frame, read the page from storage, update page tables/TLB, and restart the faulting instruction.`),
+      lesson('Embedded-system structure', 'Event -> Sensor -> Interface/ADC -> Processor -> Driver/DAC -> Actuator\nProgram + memory -> Decision\nEnvironment feedback -> Next sample', `temperature -> sensor -> controller -> fan`, 'What distinguishes an embedded system?', `It performs a focused function inside a product under timing, power, cost, and resource constraints.`, graph('Embedded control loop', [['Environment', 45, 86], ['Sensor', 120, 38], ['Controller', 210, 86], ['Actuator', 300, 38], ['Feedback', 330, 138]], [[0, 1], [1, 2, 'sample'], [2, 3, 'command'], [3, 4], [4, 0]], 'Example: a thermostat senses temperature and controls heating.')),
+      lesson('Microcontroller organization', 'CPU + Flash + RAM + Timers + GPIO + Serial ports -> One chip\nMemory-mapped register -> Peripheral action\nClock/reset -> Coordinated start', `write GPIO register -> output pin changes`, 'Why use a microcontroller?', `It integrates processing, memory, timers, and I/O in a compact low-cost, low-power device.`, graph('Microcontroller', [['CPU', 180, 82], ['Flash', 70, 30], ['RAM', 70, 140], ['Timers', 290, 30], ['GPIO', 290, 82], ['Serial', 290, 140]], [[0, 1], [0, 2], [0, 3], [0, 4], [0, 5]], 'Example: a timer triggers sampling while GPIO drives an LED.')),
+      lesson('Programs and interrupts', 'Initialize -> Configure -> Main loop/sleep\nEvent -> Interrupt -> Short handler -> Flag/buffer -> Main task\nDeadline -> Bounded response -> Correct action', `timer interrupt -> sample -> buffer -> return`, 'Why keep an ISR short?', `It limits latency for other events and quickly returns to scheduled work.`, cycle('Embedded event loop', ['Initialize', 'Main task / sleep', 'Interrupt', 'Handle / return'], 'Example: the ISR captures data; the main loop processes it.')),
+      lesson('Real-time performance', 'Task release -> Ready -> Execute -> Complete -> Deadline\nWorst-case time -> Schedule test -> Guarantee\nHard miss -> Failure\nSoft miss -> Quality loss', `period 10 ms, execution 2 ms -> utilization 0.2`, 'What makes a real-time system correct?', `It produces the correct logical result within its deadline.`, flow('Real-time task', ['Release', 'Ready', 'Execute', 'Complete', 'Deadline check'], 'Example: an airbag controller must meet a hard deadline.')),
+      lesson('Power, cost, and reliability', 'Higher clock/voltage -> More speed -> More power/heat\nSleep -> Less power -> Wake delay\nRedundancy -> Reliability -> Cost/area\nConstraints -> Balanced design', `sample -> compute -> sleep -> wake`, 'Why is maximum speed not always best?', `Battery life, heat, cost, size, and predictable timing may matter more.`, compare('Embedded trade-offs', [['Speed', 'Higher clock', 'More power'], ['Energy', 'Sleep', 'Wake delay'], ['Reliability', 'Redundancy', 'More cost']], 'Example: a sensor node sleeps between samples.')),
     ],
-    trap: 'A TLB miss is not automatically a page fault; the page-table entry may still show that the page is resident.',
-    practice: 'Calculate memory-chip organization and translate small virtual addresses using a supplied page table.',
+    trap: 'Fast average response is not a timing guarantee; the worst relevant response must meet its deadline.',
+    practice: 'Draw a sensor-controller-actuator loop and assign timing, memory, power, and interrupts.',
   }),
   createChapter({
     number: 10,
-    title: 'Input and Output Organization',
-    hook: 'I/O connects a fast deterministic CPU to devices that arrive late, fail independently, and speak at wildly different rates.',
+    title: 'Computer Peripherals',
+    hook: 'Peripherals turn human, magnetic, optical, serial, and network signals into transferable data.',
     lessons: [
-      lesson('I/O interfaces', 'An interface exposes data, status, and control registers while translating timing and signals for a device.', `CPU bus <-> I/O interface <-> device
-registers: DATA, STATUS, CONTROL`, 'Why is an I/O interface placed between the CPU bus and a peripheral?', `It adapts electrical timing and device protocols while presenting standard data, status, and control registers to the processor.`),
-      lesson('Memory-mapped and isolated I/O', 'Memory-mapped I/O uses normal load/store addresses; isolated I/O uses a separate address space and special instructions.', `Memory mapped: LOAD R1, [device_status]
-Isolated: IN R1, port`, 'Give one advantage of memory-mapped I/O.', `Normal memory instructions and addressing modes can access device registers, simplifying the instruction set and programming model.`),
-      lesson('Programmed and interrupt I/O', 'Polling repeatedly checks status; interrupt-driven I/O lets the CPU work until the device requests attention.', `Polling: while (!(STATUS & READY)) {}
-Interrupt: device signals CPU when ready`, 'Why can interrupt-driven I/O waste fewer CPU cycles than polling?', `The CPU performs other work instead of repeatedly reading a device status register while the device is idle.`),
-      lesson('Direct memory access', 'A DMA controller transfers blocks between a device and memory, interrupting the CPU mainly at setup and completion.', `CPU configures source, destination, count
-DMA transfers block
-DMA interrupts on completion`, 'What information must the CPU usually provide to start a DMA transfer?', `The source or device, memory address, transfer direction, byte or word count, and control mode.`),
-      lesson('Priority and interrupts', 'Priority logic selects among simultaneous requests; masking, vectored addresses, and nesting control service order.', `priority: disk > keyboard
-both request -> service disk first
-save state before ISR`, 'What is a vectored interrupt?', `It is an interrupt whose source supplies or selects an address or vector that leads directly to the appropriate service routine.`),
+      lesson('Keyboard, mouse, and displays', 'Human action -> Sensor/switch -> Controller -> Input code -> Application\nFrame buffer -> Display controller -> Pixel timing -> Screen', `key press -> scan code -> interrupt -> character`, 'What does a display controller do?', `It reads image data and generates timed signals that refresh the display.`, flow('Human interface', ['User action', 'Peripheral', 'Controller', 'I/O interface', 'Application'], 'Example: a key press becomes a scan code before a character.')),
+      lesson('Magnetic disks', 'Logical block -> Controller -> Track/sector\nSeek -> Rotational wait -> Transfer\nBuffer -> Bus/DMA -> Memory', `access = seek + rotation + transfer`, 'Main disk-access components?', `Seek time, rotational latency, transfer time, and relevant controller/queueing overhead.`, cycle('Disk access', ['Seek track', 'Wait sector', 'Transfer block', 'Buffer / complete'], 'Example: random access waits before bytes move.')),
+      lesson('Optical storage', 'Laser -> Disc track -> Reflected change -> Detector -> Decoded bits\nSector -> Error correction -> Data block', `pit/land pattern -> optical signal -> data`, 'How is optical data read?', `A laser and detector sense reflected-light changes that electronics decode into bits.`, flow('Optical read', ['Laser', 'Disc track', 'Reflection', 'Detector', 'Decoded data'], 'Example: error correction repairs small read defects.')),
+      lesson('Serial interfaces', 'Parallel word -> Serializer -> Bit stream -> Cable -> Deserializer\nAsynchronous frame -> Start + data + parity + stop\nUSB host -> Scheduled endpoint transfer', `UART: start -> data -> parity -> stop`, 'Why start and stop bits?', `They mark character boundaries without a continuously shared clock.`, frame('Serial frame', ['Start', 'Data bits', 'Parity', 'Stop'], [55, 155, 55, 55], 'Example: UART samples data after detecting start.')),
+      lesson('Network interfaces', 'Application -> Protocol stack -> Frame -> Adapter -> Medium\nReceived frame -> Check/filter -> DMA buffer -> Driver -> Stack\nMAC address -> Local delivery', `NIC -> DMA to RAM -> notify driver`, 'How does a NIC reduce CPU work?', `It handles frame signaling, checks, buffering, and often DMA/checksum work.`, flow('Network receive', ['Signal', 'NIC logic', 'DMA buffer', 'Driver', 'Protocol stack'], 'Example: a corrupt frame is rejected before software receives it.')),
     ],
-    trap: 'DMA reduces CPU copying work but still competes for memory or bus bandwidth.',
-    practice: 'Compare polling, interrupts, and DMA for a keyboard, network adapter, and high-speed storage transfer.',
+    trap: 'Capacity, transfer rate, and access delay are separate peripheral properties.',
+    practice: 'Trace a key event, disk block, optical read, UART character, and network frame to memory.',
   }),
   createChapter({
     number: 11,
-    title: 'Pipelining',
-    hook: 'A pipeline overlaps instructions like an assembly line: latency remains, but completed work can emerge every cycle.',
+    title: 'Processor Families',
+    hook: 'A processor family preserves a software contract while datapaths, pipelines, and caches evolve.',
     lessons: [
-      lesson('Pipeline stages and speedup', 'A classic pipeline uses fetch, decode, execute, memory, and write-back stages; ideal throughput approaches one instruction per cycle.', `Nonpipeline: n x 5 cycles
-Ideal 5-stage pipeline: 5 + (n - 1) cycles`, 'How many cycles does an ideal five-stage pipeline need for 10 instructions?', `It needs k + n - 1 = 5 + 10 - 1 = 14 cycles.`),
-      lesson('Structural hazards', 'A structural hazard occurs when overlapping instructions need the same hardware resource at the same time.', `One memory for instruction fetch and data access
-IF and MEM conflict -> stall or separate memories`, 'Give one way to remove a memory structural hazard.', `Provide separate instruction and data memories/caches or add sufficient multiported access so both operations can proceed.`),
-      lesson('Data hazards', 'A read-after-write hazard occurs when an instruction needs a result that an earlier instruction has not yet written.', `ADD R1, R2, R3
-SUB R4, R1, R5  // needs new R1`, 'Name the dependency in the shown ADD followed by SUB.', `It is a read-after-write (RAW) dependency because SUB must read the R1 value produced by ADD.`),
-      lesson('Forwarding and stalls', 'Forwarding sends a result directly from a later pipeline stage to a dependent operation; stalls wait when forwarding is insufficient.', `ALU result -> next instruction ALU input
-Load-use may still require a bubble`, 'How does forwarding reduce RAW stalls?', `It bypasses the register file and supplies a produced value directly to the dependent pipeline stage before normal write-back.`),
-      lesson('Control hazards', 'A branch changes the PC before the pipeline knows the correct next instruction; prediction and early resolution reduce lost cycles.', `predict next PC
-correct -> continue
-wrong -> flush wrong-path instructions`, 'What happens after a branch prediction is found incorrect?', `Wrong-path instructions are flushed, the correct PC is installed, and fetching restarts from the correct path.`),
+      lesson('Instruction-set family idea', 'Stable ISA -> Existing software -> New generation\nNew microarchitecture -> Same visible result -> Better implementation\nCompatibility -> Constraint -> Long family life', `old binary -> newer compatible CPU -> same result`, 'What can change inside one ISA family?', `Pipeline, caches, execution width, prediction, clocking, and fabrication can change.`, flow('Family evolution', ['ISA contract', 'Decoder', 'Microarchitecture', 'Generation', 'Program result'], 'Example: a new pipeline still executes an old compatible binary.')),
+      lesson('ARM family', 'Load/store core -> Pipeline/cache growth -> Higher performance\nExtensions -> Thumb/SIMD/system features -> More markets\nEnergy efficiency -> Embedded to application systems', `ARM code -> register datapath -> memory interface`, 'Why does ARM span many products?', `Its scalable load/store design, extensions, and performance per watt suit many classes.`, flow('ARM family route', ['Load/store core', 'Pipeline', 'Caches', 'Extensions', 'System-on-chip'], 'Example: the family scales from controllers to application processors.')),
+      lesson('Motorola 68000 family', 'D registers -> Data\nA registers -> Addresses\nRich modes -> Flexible operands\nCompatible successors -> Wider paths/caches -> More performance', `D0-D7 + A0-A7 -> operation`, 'What made its register model clear?', `Separate data and address roles supported arithmetic and pointer operations.`, matrix('68000 family', [['D0-D7', 'data'], ['A0-A7', 'addresses'], ['Rich modes', 'operands'], ['Successors', 'growth']], 'Example: successors improve internals while preserving the base model.')),
+      lesson('Intel IA-32 family', '8086 base -> 32-bit IA-32 -> Large software ecosystem\nVariable instructions -> Complex decode -> Internal operations\nCompatibility mode -> Old software -> New hardware', `x86 bytes -> length decode -> operations -> units`, 'Why is IA-32 decoding complex?', `Variable lengths, prefixes, formats, and accumulated addressing choices require complex decoding.`, flow('IA-32 execution', ['Variable bytes', 'Length decode', 'Decode', 'Internal ops', 'Execution units'], 'Example: one memory arithmetic instruction becomes several actions.')),
+      lesson('PowerPC and comparison', 'RISC registers -> Load/store -> Branch/condition features\nCompare -> Registers + encoding + addressing + compatibility\nTarget workload -> Implementation -> Power/performance', `ARM / 68000 / IA-32 / PowerPC -> feature table`, 'What should be compared?', `Compare registers, formats, memory model, addressing, control flow, compatibility, and workload fit.`, compare('Processor families', [['ARM', 'Load/store', 'Energy scale', 'Extensions'], ['68000', 'Rich modes', 'D/A regs', 'Legacy'], ['IA-32', 'Variable ISA', 'Compatibility', 'Decode'], ['PowerPC', 'RISC style', 'Registers', 'Systems']], 'Example: ISA style changes decoding and compiler strategy.')),
     ],
-    trap: 'Pipelining improves throughput, not the execution latency of a single isolated instruction.',
-    practice: 'Draw a five-stage timing chart and mark structural, data, and control hazards with their remedies.',
+    trap: 'An ISA family is not one physical CPU; many organizations can implement the same architecture.',
+    practice: 'Compare ARM, 68000, IA-32, and PowerPC by registers, encoding, memory access, and compatibility.',
   }),
   createChapter({
     number: 12,
-    title: 'Parallelism and Performance',
-    hook: 'Performance comes from useful work per unit time, not clock rate alone; parallel hardware only helps the portion that can run in parallel.',
+    title: 'Large Computer Systems',
+    hook: 'Large systems connect processors, memories, and networks so work progresses with usable shared state.',
     lessons: [
-      lesson('CPU performance equation', 'CPU time equals instruction count multiplied by cycles per instruction and clock-cycle time.', `IC = 1,000,000
-CPI = 2
-Clock = 2 GHz
-CPU time = IC x CPI / rate = 1 ms`, 'Calculate CPU time for one million instructions, CPI 2, and a 2 GHz clock.', `CPU time = 1,000,000 x 2 / 2,000,000,000 second = 0.001 second = 1 ms.`),
-      lesson('Speedup', 'Speedup is old execution time divided by new execution time; efficiency also considers resources used.', `Old = 20 s, new = 5 s
-Speedup = 20 / 5 = 4`, 'Find the speedup when execution time falls from 20 seconds to 5 seconds.', `Speedup = 20 / 5 = 4, so the new system is four times as fast for this workload.`),
-      lesson("Amdahl's law", 'If fraction P is accelerated by factor S, total speedup is 1 / ((1-P) + P/S).', `P = 0.8, S = 4
-speedup = 1 / (0.2 + 0.8/4)
-= 2.5`, "Apply Amdahl's law when 80% is accelerated fourfold.", `Speedup = 1 / (0.2 + 0.8/4) = 1 / 0.4 = 2.5.`),
-      lesson('Flynn classification', 'SISD, SIMD, MISD, and MIMD classify systems by numbers of instruction and data streams.', `Vector/GPU-style lanes -> SIMD
-Multicore independent threads -> MIMD`, 'Classify a multicore machine running independent instruction streams on different data.', `It is MIMD: multiple instruction streams operate on multiple data streams.`),
-      lesson('Multicore and coherence', 'Private caches improve locality, but coherence protocols are needed so cores observe compatible values for shared blocks.', `Core 1 writes X in cache
-coherence invalidates/updates other cached copies`, 'What problem does cache coherence solve?', `It prevents cores from indefinitely using inconsistent cached copies of the same shared memory location.`),
+      lesson('Forms of parallel processing', 'One instruction + one data -> SISD\nOne instruction + many data -> SIMD/vector\nMany instructions + many data -> MIMD\nTask split -> Parallel work -> Combined result', `matrix rows -> workers -> merged matrix`, 'SIMD versus MIMD?', `SIMD applies one instruction across many data; MIMD executes different instruction streams.`, matrix('Parallel classes', [['SISD', 'one + one'], ['SIMD', 'one + many'], ['MIMD', 'many + many'], ['Cluster', 'networked']], 'Example: vector lanes perform one operation on many elements.')),
+      lesson('Shared-memory multiprocessors', 'Processors -> Private caches -> Interconnect -> Shared memory\nLoad/store -> Common address space -> Communication\nLock/atomic -> Mutual exclusion -> Protected data', `Core A writes X -> Core B reads X`, 'What makes memory shared?', `Processors communicate through loads/stores to a common address space.`, graph('Shared memory', [['CPU 1 + cache', 55, 38], ['CPU 2 + cache', 55, 135], ['Interconnect', 180, 86], ['Memory 1', 305, 38], ['Memory 2', 305, 135]], [[0, 2], [1, 2], [2, 3], [2, 4]], 'Example: both processors address one shared variable.')),
+      lesson('Interconnect and coherence', 'Core write -> Coherence request -> Other copies invalidate/update -> Consistent read\nSnooping -> Observe shared bus\nDirectory -> Track sharers -> Target messages\nMore nodes -> Contention', `write X on Core 1 -> invalidate stale X on Core 2`, 'What does coherence solve?', `It prevents incompatible cached copies of one shared block from persisting.`, cycle('Coherence action', ['Read shared line', 'Write request', 'Invalidate copies', 'New value visible'], 'Example: another core cannot keep reading stale X.')),
+      lesson('Clusters and messages', 'Node memory -> NIC -> Network -> Remote NIC -> Remote memory\nSend buffer -> Message -> Receive buffer\nNode failure -> Other nodes -> Recovery', `worker -> partial result message -> coordinator`, 'Message passing versus shared memory?', `Processes explicitly send/receive between separate spaces instead of using shared loads/stores.`, graph('Cluster message', [['Node A memory', 55, 38], ['Node A NIC', 55, 138], ['Network', 180, 86], ['Node B NIC', 305, 138], ['Node B memory', 305, 38]], [[0, 1], [1, 2, 'message'], [2, 3], [3, 4]], 'Example: nodes exchange partial results through the network.')),
+      lesson('Scalability limits', 'Parallel fraction -> More processors -> Less compute time\nSerial fraction -> Fixed delay -> Amdahl limit\nCommunication/synchronization -> Overhead\nImbalance -> Idle processors -> Lost speedup', `speedup = 1 / ((1-P) + P/N)`, 'Why can extra processors add little speedup?', `Serial work, communication, contention, synchronization, and imbalance can dominate.`, flow('Parallel workload', ['Split', 'Compute', 'Communicate', 'Synchronize', 'Combine'], 'Example: one slow worker delays every participant at a barrier.')),
     ],
-    trap: 'A higher clock rate does not guarantee a faster program; instruction count, CPI, memory behavior, and workload all matter.',
-    practice: 'Calculate CPU time, speedup, and Amdahl limits, then classify four parallel architectures.',
+    trap: 'More processors create potential parallelism, not guaranteed speedup.',
+    practice: 'Compare shared memory and clusters, trace coherence, and calculate an Amdahl limit.',
   }),
 ];
 
 chapters.push(createRevisionChapter({
   number: 13,
-  title: 'Architecture Revision Map',
-  hook: 'Follow one instruction from bits to registers, control, arithmetic, memory, I/O, pipeline, and measured performance.',
+  title: 'Complete COA Revision Map',
+  hook: 'Revision follows connected routes: instruction, datapath, memory, I/O, pipeline, and complete-system performance.',
   topics: [
-    ['1. Representation route', "Bases, signed numbers, two's complement, character codes, overflow, and floating point.", `value -> fixed bit pattern -> interpretation`],
-    ['2. Datapath route', 'Registers, buses, ALU operations, RTL, status flags, and addressing modes move and transform operands.', `source registers -> ALU -> destination register`],
-    ['3. Control route', 'Fetch, decode, execute, interrupts, hardwired control, and microprograms sequence each operation.', `PC -> IR -> decode -> timed control signals`],
-    ['4. Memory route', 'Locality, caches, RAM, paging, TLBs, and page faults trade capacity for speed.', `register -> cache -> RAM -> secondary storage`],
-    ['5. I/O route', 'Interfaces, polling, interrupts, DMA, and priority connect asynchronous devices.', `device -> interface -> bus -> memory/CPU`],
-    ['6. Performance route', "Pipelines, hazards, CPU time, speedup, Amdahl's law, and parallel architectures explain real performance.", `CPU time = IC x CPI / clock rate`],
+    ['1. Computer route', 'Input -> Memory -> Processor -> Output\nClock/control -> Register transfers -> Completed instruction', `draw units -> connect bus -> trace one value`, graph('Whole-computer map', [['Input', 45, 86], ['Memory', 140, 38], ['CPU', 225, 86], ['Output', 320, 86], ['Storage', 140, 140]], [[0, 1], [1, 2], [2, 1], [2, 3], [4, 1]], 'Recall: point to the route used by one input value and result.')],
+    ['2. Instruction route', 'PC -> Fetch -> IR -> Decode -> Address/operand -> Execute -> Result/next PC', `choose mode -> calculate EA -> show destination`, flow('Instruction recall', ['PC', 'Fetch / IR', 'Decode', 'Execute', 'Write / branch'], 'Recall: show what changes for LOAD, ADD, and branch.')],
+    ['3. Datapath and control route', 'Registers -> Bus/MUX -> ALU/shifter -> Destination\nOpcode + flags + time -> Control unit -> Signals', `source -> operation -> destination -> condition`, graph('Control drives datapath', [['Instruction', 45, 38], ['Control', 145, 38], ['Registers', 45, 140], ['ALU', 225, 140], ['Destination', 320, 140]], [[0, 1], [1, 2, 'select'], [2, 3, 'data'], [1, 3, 'function'], [3, 4, 'result']], 'Recall: produce signals for R1 <- R2 + R3.')],
+    ['4. Memory route', 'Virtual address -> TLB/page table -> Physical address\nPhysical address -> Cache -> Hit/miss -> Main memory\nNot resident -> Page fault -> Storage', `split fields -> test hit -> translate page`, flow('Memory access', ['Virtual address', 'TLB', 'Cache', 'Main memory', 'Storage on fault'], 'Recall: distinguish cache miss, TLB miss, and page fault.')],
+    ['5. I/O and peripheral route', 'Peripheral -> Interface -> Bus -> CPU/memory\nPolling/interrupt -> CPU service\nDMA -> Direct block transfer', `choose polling vs interrupt vs DMA`, flow('I/O revision', ['Peripheral', 'Interface', 'Bus', 'DMA / CPU', 'Memory'], 'Recall: trace a disk block and a keyboard character.')],
+    ['6. Pipeline and system route', 'Instruction -> Pipeline -> Hazard -> Forward/stall/flush\nTasks -> Cores/nodes -> Communicate/synchronize -> Result\nSerial fraction -> Speedup limit', `mark dependencies -> apply remedy -> calculate speedup`, flow('Performance revision', ['Issue work', 'Stages / cores', 'Handle hazards', 'Synchronize', 'Measure speedup'], 'Recall: name the bottleneck at each arrow.')],
   ],
-  trap: 'Architecture questions become confusing when representation, organization, and timing are mixed. Label each level before solving.',
+  trap: 'Do not memorise isolated boxes. State what sends information, where it travels, and what receives it.',
   plan: [
-    { title: 'Six-Day Recall Plan', points: ['Day 1: representation and arithmetic.', 'Day 2: RTL, datapath, and instruction formats.', 'Day 3: fetch, control, and interrupts.', 'Day 4: cache and virtual memory.', 'Day 5: I/O and DMA.', 'Day 6: pipelining, performance, and a mixed paper.'] },
-    { title: 'Diagram Method', points: ['Draw storage elements first.', 'Add arrows showing data movement.', 'Write the control condition beside each arrow.', 'Trace one concrete value through the diagram.'] },
+    { title: 'Arrow Recall Method', points: ['Write the starting unit.', 'Add each register or interface.', 'Draw direction and label data/control.', 'Trace one concrete value.', 'State the bottleneck or failure case.'] },
+    { title: 'Six-Day Revision', points: ['Day 1: structure and instructions.', 'Day 2: ISA examples and I/O.', 'Day 3: memory and arithmetic.', 'Day 4: processing unit and pipeline.', 'Day 5: embedded systems and peripherals.', 'Day 6: processor families, large systems, and a mixed paper.'] },
   ],
 }));
 
@@ -298,7 +206,7 @@ export const computerArchitectureNotes = {
   accent: '#9a5a16',
   status: 'Ready',
   supportsPlayground: false,
-  source: { label: 'Original curriculum-based notes' },
-  prompts: ['Explain the instruction cycle', 'Cache mapping example', 'Addressing modes', 'Pipeline hazards', 'Amdahl calculation', 'Chapter 1 recap'],
+  source: { label: 'Computer Organization, 5th Ed. - Hamacher, Vranesic & Zaky' },
+  prompts: ['Trace an instruction', 'Cache mapping', 'Addressing modes', 'Pipeline hazards', 'DMA connection', 'Complete COA revision'],
   chapters,
 };

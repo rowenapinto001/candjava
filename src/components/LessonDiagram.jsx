@@ -384,7 +384,7 @@ function DiagramArtwork({ markerId, spec }) {
 export function LessonDiagram({ type }) {
   const reactId = useId().replace(/:/g, '');
   if (type === 'network-topologies') return <NetworkTopologyDiagrams />;
-  const spec = DIAGRAMS[type];
+  const spec = typeof type === 'object' ? type : DIAGRAMS[type];
   if (!spec) return null;
   const markerId = `diagram-arrow-${reactId}`;
   return (
@@ -394,7 +394,7 @@ export function LessonDiagram({ type }) {
         <defs><marker id={markerId} markerHeight="7" markerWidth="7" orient="auto" refX="6" refY="3.5"><path d="M0,0 L7,3.5 L0,7 z" /></marker></defs>
         <DiagramArtwork markerId={markerId} spec={spec} />
       </svg>
-      <p>{spec.note}</p>
+      <div className="lesson-diagram-note">{spec.note}</div>
     </figure>
   );
 }

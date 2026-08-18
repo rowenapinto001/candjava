@@ -10,7 +10,6 @@ import {
   BookOpen,
   Bookmark,
   BookmarkCheck,
-  Bot,
   Calculator,
   CalendarDays,
   Check,
@@ -27,7 +26,6 @@ import {
   Library,
   Lightbulb,
   ListChecks,
-  MessageCircle,
   Minus,
   Moon,
   NotebookTabs,
@@ -38,7 +36,6 @@ import {
   Route,
   Rocket,
   Search,
-  Send,
   Settings2,
   Sparkles,
   Sun,
@@ -46,7 +43,6 @@ import {
   Trash2,
   Trophy,
   Type,
-  UserRound,
   X,
 } from 'lucide-react';
 import { codingAnswersByChapter } from './data/codingAnswers.js';
@@ -179,15 +175,6 @@ function handleHorizontalWheel(event) {
   }
 }
 
-const cStarterPrompts = [
-  'Explain pointers',
-  'Loop revision',
-  'Arrays fast notes',
-  'File I/O traps',
-  'String practice',
-  'Chapter 1 recap',
-];
-
 function App() {
   const [studyData, setStudyData] = useState(loadStudyData);
   const [activeLanguage, setActiveLanguage] = useState(() => studyData.lastLocation.languageId);
@@ -197,23 +184,11 @@ function App() {
   const [showBookmarks, setShowBookmarks] = useState(false);
   const [showAccessibility, setShowAccessibility] = useState(false);
   const [reminderMessage, setReminderMessage] = useState('');
-  const [question, setQuestion] = useState('');
-  const [messages, setMessages] = useState(() => [
-    {
-      id: crypto.randomUUID(),
-      role: 'bot',
-      type: 'welcome',
-      text: 'Ready for a C study sprint. Pick a chapter or ask for pointers, loops, arrays, files, traps, examples, or practice.',
-    },
-  ]);
-  const inputRef = useRef(null);
-
   const selectedLanguage = languages.find((language) => language.id === activeLanguage) ?? cNotes;
   const isReady = Boolean(selectedLanguage.chapters?.length);
   const selectedChapter = selectedLanguage.chapters?.find((chapter) => chapter.number === activeChapter)
     ?? selectedLanguage.chapters?.[0]
     ?? cNotes.chapters[0];
-  const starterPrompts = selectedLanguage.prompts ?? cStarterPrompts;
   const chapterKey = getChapterKey(selectedLanguage.id, selectedChapter.number);
   const completedCount = selectedLanguage.chapters?.filter(
     (chapter) => studyData.completed[getChapterKey(selectedLanguage.id, chapter.number)],
@@ -258,10 +233,6 @@ function App() {
     return () => window.clearInterval(timer);
   }, []);
 
-  const topicMatches = useMemo(
-    () => flattenNotes(selectedLanguage.chapters ?? []),
-    [selectedLanguage],
-  );
   const playgroundExamples = useMemo(
     () => getPlaygroundExamples(selectedLanguage),
     [selectedLanguage],
@@ -363,48 +334,10 @@ function App() {
     }));
   };
 
-  const askBot = (rawQuestion) => {
-    const cleanQuestion = rawQuestion.trim();
-    if (!cleanQuestion) return;
-
-    const answer = buildAnswer(cleanQuestion, selectedChapter, topicMatches, selectedLanguage);
-    setMessages((current) => [
-      ...current,
-      {
-        id: crypto.randomUUID(),
-        role: 'user',
-        text: cleanQuestion,
-      },
-      {
-        id: crypto.randomUUID(),
-        role: 'bot',
-        text: answer.text,
-        chapter: answer.chapter,
-        match: answer.match,
-      },
-    ]);
-
-    if (answer.chapter) {
-      setActiveChapter(answer.chapter.number);
-    }
-
-    setQuestion('');
-    window.setTimeout(() => inputRef.current?.focus(), 80);
-  };
-
   const openChapter = (chapter) => {
     setActiveChapter(chapter.number);
     setActiveView('reader');
     rememberLocation(selectedLanguage.id, chapter.number);
-    setMessages((current) => [
-      ...current,
-      {
-        id: crypto.randomUUID(),
-        role: 'bot',
-        text: `Opened Chapter ${chapter.number}: ${chapter.title}. Start with the key points, study the worked examples, then try the five practice questions at the end.`,
-        chapter,
-      },
-    ]);
   };
 
   const openLanguage = (language) => {
@@ -413,15 +346,6 @@ function App() {
     setActiveView('reader');
     setSearchTerm('');
     rememberLocation(language.id, 1);
-    if (language.chapters?.length) {
-      setMessages([
-        {
-          id: crypto.randomUUID(),
-          role: 'bot',
-          text: `Ready for a ${language.name} study sprint. Pick a chapter or ask for a concept, example, trap, or practice set.`,
-        },
-      ]);
-    }
   };
 
   const openSearchResult = (result) => {
@@ -522,8 +446,8 @@ function App() {
       <section className="bot-workspace">
         <header className="bot-hero">
           <div>
-            <p className="eyebrow">Ask. Unlock. Remember.</p>
-            <h2>{selectedLanguage.name} Notes Bot</h2>
+            <p className="eyebrow">Learn. Practice. Remember.</p>
+            <h2>{selectedLanguage.name} Notes</h2>
             <p>Turn each {selectedLanguage.name} chapter into a short mission: key ideas, danger points, examples, and practice.</p>
           </div>
           <HeroVisual chapter={selectedChapter} />
@@ -571,51 +495,6 @@ function App() {
             )}
 
             {activeView === 'reader' && <div className="bot-grid">
-            <section className="chat-panel" aria-label="Notes bot chat">
-              <div className="chat-header">
-                <div className="chat-icon"><MessageCircle size={21} /></div>
-                <div>
-                  <h3>Notes Bot</h3>
-                  <p>Chapter {selectedChapter.number}: {selectedChapter.title}</p>
-                </div>
-              </div>
-
-              <div className="prompt-chips" aria-label="Suggested questions">
-                {starterPrompts.map((prompt) => (
-                  <button key={prompt} type="button" onClick={() => askBot(prompt)}>
-                    {prompt}
-                  </button>
-                ))}
-              </div>
-
-              <div className="messages" aria-live="polite">
-                {messages.map((message) => (
-                  <ChatMessage key={message.id} message={message} />
-                ))}
-              </div>
-
-              <form
-                className="ask-form"
-                onSubmit={(event) => {
-                  event.preventDefault();
-                  askBot(question);
-                }}
-              >
-                <label>
-                  <Search size={18} />
-                  <input
-                    ref={inputRef}
-                    value={question}
-                    onChange={(event) => setQuestion(event.target.value)}
-                    placeholder="Ask: explain arrays, chapter 5 trap, recursion practice..."
-                  />
-                </label>
-                <button type="submit" aria-label="Ask notes bot">
-                  <Send size={19} />
-                </button>
-              </form>
-            </section>
-
             <section className="study-panel" aria-label="Selected chapter notes">
               <ChapterPicker
                 activeChapter={activeChapter}
@@ -700,34 +579,6 @@ function App() {
       />
     )}
     </>
-  );
-}
-
-function ChatMessage({ message }) {
-  const isUser = message.role === 'user';
-
-  return (
-    <article className={`message ${isUser ? 'is-user' : 'is-bot'}`}>
-      <div className="message-avatar" aria-hidden="true">
-        {isUser ? <UserRound size={18} /> : <Bot size={18} />}
-      </div>
-      <div className="message-bubble">
-        <p>{message.text}</p>
-        {message.chapter && !isUser && (
-          <div className="answer-card">
-            <span>Chapter {message.chapter.number}</span>
-            <strong>{message.chapter.title}</strong>
-            <p>{message.chapter.hook}</p>
-          </div>
-        )}
-        {message.match && !isUser && (
-          <div className="topic-answer">
-            <strong>{message.match.topic}</strong>
-            <p>{message.match.point}</p>
-          </div>
-        )}
-      </div>
-    </article>
   );
 }
 
@@ -1134,7 +985,9 @@ function ChapterNotebook({
             <div className="topic-table-row" key={topic} role="row">
               <strong role="cell">{topic}</strong>
               <div className="topic-detail" role="cell">
-                <p>{point}</p>
+                {language.id === 'computer-architecture'
+                  ? <ConceptArrowSummary summary={point} />
+                  : <p>{point}</p>}
                 <div className="topic-example">
                   <span>{visual ? 'Diagram' : 'Example'}</span>
                   {visual ? (
@@ -1163,27 +1016,44 @@ function ChapterNotebook({
 
       {language.id === 'data-communication' && chapter.number === 2 && <ProtocolJourney />}
 
-      <div className="note-split">
-        <div className="note-card">
+      {language.id === 'computer-architecture' ? (
+        <div className="note-card coa-focus-table">
           <div className="section-heading">
             <Lightbulb size={20} />
-            <h4>Important & Usable</h4>
+            <h4>Recall Routes</h4>
           </div>
-          <ul className="clean-list">
-            {chapter.useIt.map((point) => (
-              <li key={point}>{point}</li>
-            ))}
-          </ul>
+          <div className="coa-focus-row">
+            <strong>Study route</strong>
+            <ConceptArrowSummary summary={'Read the map -> Cover it -> Rebuild it\nTrace an example -> Check each arrow -> Correct weak links\nAnswer five questions -> Reveal answers -> Revise mistakes'} />
+          </div>
+          <div className="coa-focus-row is-warning">
+            <strong><AlertTriangle size={17} /> Avoid</strong>
+            <ConceptArrowSummary summary={`Wrong shortcut -> ${chapter.trap}`} />
+          </div>
         </div>
+      ) : (
+        <div className="note-split">
+          <div className="note-card">
+            <div className="section-heading">
+              <Lightbulb size={20} />
+              <h4>Important & Usable</h4>
+            </div>
+            <ul className="clean-list">
+              {chapter.useIt.map((point) => (
+                <li key={point}>{point}</li>
+              ))}
+            </ul>
+          </div>
 
-        <div className="note-card warning">
-          <div className="section-heading">
-            <AlertTriangle size={20} />
-            <h4>Trap</h4>
+          <div className="note-card warning">
+            <div className="section-heading">
+              <AlertTriangle size={20} />
+              <h4>Trap</h4>
+            </div>
+            <p>{chapter.trap}</p>
           </div>
-          <p>{chapter.trap}</p>
         </div>
-      </div>
+      )}
 
       {chapter.revisionPlan && <RevisionPlan plan={chapter.revisionPlan} />}
 
@@ -1214,7 +1084,9 @@ function ChapterNotebook({
         </div>
       )}
 
-      {!chapter.revisionOnly && <ProgramExamples chapter={chapter} language={language} />}
+      {!chapter.revisionOnly && language.id !== 'computer-architecture' && (
+        <ProgramExamples chapter={chapter} language={language} />
+      )}
 
       <div className="note-split">
         <div className="code-card">
@@ -1231,8 +1103,12 @@ function ChapterNotebook({
             <BookOpen size={20} />
             <h4>Practice</h4>
           </div>
-          <p>{chapter.practice}</p>
-          <div className="energy-strip">{chapter.energy}</div>
+          {language.id === 'computer-architecture'
+            ? <ConceptArrowSummary summary={`Choose one route -> ${chapter.practice} -> Check every connection`} />
+            : <p>{chapter.practice}</p>}
+          {language.id === 'computer-architecture'
+            ? <ConceptArrowSummary summary="See the route -> Trace the information -> Recall without notes" />
+            : <div className="energy-strip">{chapter.energy}</div>}
         </div>
       </div>
 
@@ -1256,6 +1132,28 @@ function ChapterNotebook({
         onMove={onMoveChapter}
       />
     </article>
+  );
+}
+
+function ConceptArrowSummary({ summary }) {
+  const routes = String(summary).split('\n').filter(Boolean);
+
+  return (
+    <div className="concept-arrow-summary" aria-label={String(summary).replaceAll('->', 'to')}>
+      {routes.map((route) => {
+        const nodes = route.split(/\s*->\s*/);
+        return (
+          <div className="concept-arrow-route" key={route}>
+            {nodes.map((node, index) => (
+              <span className="concept-arrow-step" key={`${node}-${index}`}>
+                <span>{node}</span>
+                {index < nodes.length - 1 && <ArrowRight aria-hidden="true" size={16} />}
+              </span>
+            ))}
+          </div>
+        );
+      })}
+    </div>
   );
 }
 
@@ -2523,104 +2421,6 @@ function getFallbackTopicExample(topic) {
   const name = topic.replace(/[^A-Za-z0-9]+/g, '_').toLowerCase();
   return `/* Example idea for ${topic} */
 printf("Practice ${name}\\n");`;
-}
-
-function flattenNotes(chapters) {
-  return chapters.flatMap((chapter) =>
-    chapter.topics.map(([topic, point]) => ({
-      chapter,
-      topic,
-      point,
-      text: `${chapter.number} ${chapter.title} ${topic} ${point} ${chapter.trap} ${chapter.practice}`.toLowerCase(),
-    })),
-  );
-}
-
-function buildAnswer(question, fallbackChapter, topicMatches, language) {
-  const lower = question.toLowerCase();
-  const chapterNumber = lower.match(/chapter\s*(\d+)|\bch\s*(\d+)/)?.slice(1).find(Boolean);
-  const directChapter = chapterNumber
-    ? language.chapters.find((chapter) => chapter.number === Number(chapterNumber))
-    : null;
-
-  const exactTopic = topicMatches.find((item) => lower.includes(item.topic.toLowerCase()));
-  const keywordMatch = topicMatches
-    .map((item) => ({
-      item,
-      score: lower
-        .split(/\W+/)
-        .filter((word) => word.length > 2 && item.text.includes(word)).length,
-    }))
-    .sort((a, b) => b.score - a.score)[0];
-
-  const match = exactTopic ?? (keywordMatch?.score > 0 ? keywordMatch.item : null);
-  const chapter = directChapter ?? match?.chapter ?? fallbackChapter;
-
-  if (
-    lower.includes('coding question') ||
-    lower.includes('programming question') ||
-    lower.includes('question')
-  ) {
-    const questions = chapter.questions
-      ?? (language.id === 'c' ? codingQuestionsByChapter[chapter.number] : []);
-    return {
-      chapter,
-      match,
-      text: questions.length
-        ? `Here are 5 coding questions for Chapter ${chapter.number}: ${chapter.title}: ${questions.join(' ')}`
-        : `I opened Chapter ${chapter.number}: ${chapter.title}. The coding questions section will appear at the end of the chapter notes.`,
-    };
-  }
-
-  if (lower.includes('practice') || lower.includes('exercise')) {
-    return {
-      chapter,
-      match,
-      text: `Practice for ${chapter.title}: ${chapter.practice}`,
-    };
-  }
-
-  if (lower.includes('trap') || lower.includes('mistake') || lower.includes('error')) {
-    return {
-      chapter,
-      match,
-      text: `Important trap from ${chapter.title}: ${chapter.trap}`,
-    };
-  }
-
-  if (lower.includes('example') || lower.includes('code')) {
-    const examples = chapter.programExamples
-      ?? (language.id === 'c' ? programExamplesByChapter[chapter.number] : []);
-    return {
-      chapter,
-      match,
-      text: examples.length
-        ? `I opened the Program Examples section for Chapter ${chapter.number}: ${chapter.title}. It has ${examples.length} visible examples with highlighted syntax.`
-        : `Here is the tiny example section for ${chapter.title}. Read it line by line, then change one value and run it again.`,
-    };
-  }
-
-  if (directChapter) {
-    return {
-      chapter,
-      match,
-      text: `Chapter ${chapter.number} is about ${chapter.title}. The main idea: ${chapter.hook}`,
-    };
-  }
-
-  if (match) {
-    return {
-      chapter,
-      match,
-      text: `${match.topic} belongs to Chapter ${match.chapter.number}: ${match.chapter.title}. Short answer: ${match.point}`,
-    };
-  }
-
-  return {
-    chapter,
-    match: null,
-    text: `I could not find an exact topic, so I opened the current chapter: ${chapter.title}. Try a chapter number or a keyword from the topic table.`,
-  };
 }
 
 function createSearchIndex(languageList) {
